@@ -8,6 +8,8 @@
 
 rm(list = ls())
 
+source("R/interpolate_fun.R")
+
 df <- fread("data/clean/ctd.csv") %>%
   filter(pres <= 100) %>%
   filter(transect %in% c(600, 300)) %>%
@@ -40,41 +42,43 @@ df %>%
   geom_point() +
   ggrepel::geom_text_repel(aes(label = station))
 
+# Interpolation -----------------------------------------------------------
+
+res <- df %>%
+  group_nest(transect) %>%
+  mutate(interpolated_temperature = map(
+    data,
+    interpolate_2d,
+    x = initial_latitude_deg,
+    y = pres,
+    z = temp
+  )) %>%
+  mutate(interpolated_salinity = map(
+    data,
+    interpolate_2d,
+    x = initial_latitude_deg,
+    y = pres,
+    z = sal
+  ))
+
 # Temperature -------------------------------------------------------------
 
-ctd_interpolated <- df %>%
-  drop_na(temp) %>%
-  group_nest(transect) %>%
-  mutate(interpolated_temperature = map(data, function(df) {
-    res <- df %>%
-      dplyr::select(initial_latitude_deg, pres, temp) %>%
-      mba.surf(500, 500, extend = FALSE)
-
-    res2 <-
-      expand.grid(
-        latitude = res$xyz.est$x,
-        pressure = res$xyz.est$y
-      ) %>%
-      mutate(temp = as.vector(res$xyz.est$z))
-
-    return(res2)
-  }))
-
-p1 <- ctd_interpolated %>%
+p1 <- res %>%
   unnest(interpolated_temperature) %>%
-  drop_na(temp) %>%
+  drop_na(z) %>%
   ggplot(aes(
-    x = latitude,
-    y = pressure,
-    z = temp,
-    fill = temp
+    x = x,
+    y = y,
+    z = z,
+    fill = z
   )) +
-  geom_isobands(color = NA, breaks = seq(-10, 10, by = 0.5)) +
+  geom_isobands(color = NA, breaks = seq(-10, 10, by = 0.25)) +
   geom_point(
-    data = df,
+    data = unnest(res, data),
     aes(x = initial_latitude_deg, y = pres),
     size = 0.05,
-    color = "#3c3c3c"
+    color = "#3c3c3c",
+    inherit.aes = FALSE
   ) +
   facet_wrap(~transect, scales = "free_x") +
   scale_y_reverse(expand = c(0, 0)) +
@@ -105,39 +109,22 @@ p1 <- ctd_interpolated %>%
 
 # Salinity ----------------------------------------------------------------
 
-ctd_interpolated <- df %>%
-  drop_na(sal) %>%
-  group_nest(transect) %>%
-  mutate(interpolated_sal = map(data, function(df) {
-    res <- df %>%
-      dplyr::select(initial_latitude_deg, pres, sal) %>%
-      mba.surf(500, 500, extend = FALSE)
-
-    res2 <-
-      expand.grid(
-        latitude = res$xyz.est$x,
-        pressure = res$xyz.est$y
-      ) %>%
-      mutate(sal = as.vector(res$xyz.est$z))
-
-    return(res2)
-  }))
-
-p2 <- ctd_interpolated %>%
-  unnest(interpolated_sal) %>%
-  drop_na(sal) %>%
+p2 <- res %>%
+  unnest(interpolated_salinity) %>%
+  drop_na(z) %>%
   ggplot(aes(
-    x = latitude,
-    y = pressure,
-    z = sal,
-    fill = sal
-  )) +
+    x = x,
+    y = y,
+    z = z,
+    fill = z
+  ))  +
   geom_isobands(color = NA, breaks = seq(-10, 60, by = 0.5)) +
   geom_point(
-    data = df,
+    data = unnest(res, data),
     aes(x = initial_latitude_deg, y = pres),
     size = 0.05,
-    color = "#3c3c3c"
+    color = "#3c3c3c",
+    inherit.aes = FALSE
   ) +
   facet_wrap(~transect, scales = "free_x") +
   scale_y_reverse(expand = c(0, 0)) +
@@ -163,7 +150,6 @@ p2 <- ctd_interpolated %>%
     strip.background = element_blank(),
     strip.text = element_text(hjust = 0, size = 14, face = "bold")
   )
-
 
 # Save plot ---------------------------------------------------------------
 
