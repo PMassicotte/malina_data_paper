@@ -27,7 +27,7 @@ library(patchwork)
 # devtools::install_github("PMassicotte/ggpmthemes")
 theme_set(theme_poppins(base_size = 10))
 
-# Scripts -----------------------------------------------------------------
+# Data cleaning -----------------------------------------------------------
 
 source("R/sqlite_to_csv.R")
 
@@ -39,4 +39,9 @@ source("R/clean_optic_atot.R")
 source("R/clean_optic_bb_bbp.R")
 source("R/clean_optic_eu.R")
 
+# Figures -----------------------------------------------------------------
+
 source("R/fig01.R")
+source("R/fig02.R")
+source("R/fig03.R")
+source("R/fig04.R")
