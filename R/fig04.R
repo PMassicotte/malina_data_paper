@@ -4,12 +4,13 @@ rm(list = ls())
 
 source("R/interpolate_fun.R")
 
-station <- read_csv("data/clean/stations.csv")
+station <- read_csv("data/clean/stations.csv") %>%
+  distinct(station, cast, .keep_all = TRUE)
 
 nutrient <- read_csv("data/raw/csv/novembre.csv") %>%
   janitor::clean_names()
 
-# Have a look to the localisation of the nutrients
+# Have a look to the localization of the nutrients
 station %>%
   ggplot(aes(x = longitude, y = latitude)) +
   geom_point() +
@@ -30,9 +31,36 @@ df %>%
   ggplot(aes(x = latitude, y = depth)) +
   geom_point() +
   scale_y_reverse() +
-  facet_wrap(~transect, scales = "free_x")
+  facet_wrap(~transect, scales = "free_x") +
+  labs(
+    title = "Should we average measure at the same depth?",
+    subtitle = "Check station 345 for example. It is because there are many cast for this station."
+  )
+
+# At station 345, there are 3 measures, probable 3 casts... I will average them
+# (also the latitude, longitude positions).
+df %>%
+  count(station, depth, sort = TRUE)
+
+# Average by station/depth ------------------------------------------------
 
 df
+
+df <- df %>%
+  group_by(transect, station, depth) %>%
+  summarise(across(
+    c("no3_30028_u_m", "po4_30031_u_m", "longitude", "latitude"),
+    .fns = ~ mean(.x, na.rm = TRUE)
+  ), n = n()) %>%
+  ungroup()
+
+df %>%
+  ggplot(aes(x = latitude, y = depth)) +
+  geom_point() +
+  scale_y_reverse() +
+  facet_wrap(~transect, scales = "free_x")
+
+# Interpolate -------------------------------------------------------------
 
 res <- df %>%
   group_nest(transect) %>%
@@ -51,8 +79,13 @@ res <- df %>%
     z = po4_30031_u_m
   ))
 
-
 # Plot --------------------------------------------------------------------
+
+station_labels <- res %>%
+  unnest(data) %>%
+  group_by(transect) %>%
+  ungroup() %>%
+  distinct(station, .keep_all = TRUE)
 
 p1 <- res %>%
   unnest(interpolated_no3) %>%
@@ -65,6 +98,15 @@ p1 <- res %>%
     fill = z
   )) +
   geom_isobands(color = NA, breaks = seq(-1, 200, by = 0.5)) +
+  geom_text(
+    data = station_labels,
+    aes(x = latitude, y = 0, label = station),
+    inherit.aes = FALSE,
+    size = 1.5,
+    angle = 45,
+    hjust = -0.1,
+    color = "gray50"
+  ) +
   geom_point(
     data = unnest(res, data),
     aes(x = latitude, y = depth),
@@ -73,9 +115,9 @@ p1 <- res %>%
     inherit.aes = FALSE
   ) +
   facet_wrap(~transect, scales = "free_x") +
-  scale_y_reverse(expand = c(0, 0)) +
+  scale_y_reverse(expand = expansion(mult = c(0.01, 0.1))) +
   scale_x_continuous(
-    expand = expansion(mult = c(0.01, 0.01)),
+    expand = expansion(mult = c(0.01, 0.05)),
     breaks = scales::breaks_pretty(n = 4)
   ) +
   scale_fill_viridis_c(
@@ -96,7 +138,10 @@ p1 <- res %>%
     panel.grid = element_blank(),
     strip.background = element_blank(),
     strip.text = element_text(hjust = 0, size = 14, face = "bold"),
-    panel.border = element_blank()
+    panel.border = element_blank(),
+    axis.ticks = element_blank(),
+    axis.title.x = element_blank(),
+    axis.text.x = element_blank()
   )
 
 p2 <- res %>%
@@ -110,6 +155,15 @@ p2 <- res %>%
     fill = z
   )) +
   geom_isobands(color = NA, breaks = seq(-1, 200, by = 0.05)) +
+  geom_text(
+    data = station_labels,
+    aes(x = latitude, y = 0, label = station),
+    inherit.aes = FALSE,
+    size = 1.5,
+    angle = 45,
+    hjust = -0.1,
+    color = "gray50"
+  ) +
   geom_point(
     data = unnest(res, data),
     aes(x = latitude, y = depth),
@@ -118,9 +172,9 @@ p2 <- res %>%
     inherit.aes = FALSE
   ) +
   facet_wrap(~transect, scales = "free_x") +
-  scale_y_reverse(expand = c(0, 0)) +
+  scale_y_reverse(expand = expansion(mult = c(0.01, 0.1))) +
   scale_x_continuous(
-    expand = expansion(mult = c(0.01, 0.01)),
+    expand = expansion(mult = c(0.01, 0.05)),
     breaks = scales::breaks_pretty(n = 4)
   ) +
   scale_fill_viridis_c(
@@ -141,7 +195,8 @@ p2 <- res %>%
     panel.grid = element_blank(),
     strip.background = element_blank(),
     strip.text = element_text(hjust = 0, size = 14, face = "bold"),
-    panel.border = element_blank()
+    panel.border = element_blank(),
+    axis.ticks = element_blank()
   )
 
 # Save plot ---------------------------------------------------------------
@@ -155,3 +210,4 @@ ggsave(
   width = 7,
   height = 5
 )
+
