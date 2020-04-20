@@ -38,15 +38,14 @@ p <- water_flow_2009 %>%
   xlab(NULL) +
   ylab(bquote("Daily discharge" ~ (m^3 ~ s^{-1}))) +
   paletteer::scale_colour_paletteer_d("ggsci::default_nejm") +
-  labs(
-    color = "Transect",
-    title = "Discharge of the river",
-    subtitle = "Station 10LC014: MACKENZIE RIVER AT ARCTIC RED RIVER"
-  ) +
   theme(
     plot.caption = element_text(size = 4),
     legend.key.size = unit(0.5, "cm"),
-    legend.position = "none"
+    legend.position = "none",
+    strip.background = element_blank(),
+    strip.text = element_text(hjust = 0, size = 14, face = "bold"),
+    panel.border = element_blank(),
+    axis.ticks = element_blank()
   ) +
   facet_wrap(~transect, ncol = 2)
 

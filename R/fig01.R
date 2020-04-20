@@ -18,6 +18,7 @@ ne_land <-
     returnclass = "sf",
     scale = "large"
   )
+
 ne_river <-
   rnaturalearth::ne_download(
     category = "physical",
@@ -41,7 +42,7 @@ river_coords <- tibble(lon = c(-136.172778), lat = c(68.939722))
 
 # https://open.canada.ca/data/en/dataset/448ec403-6635-456b-8ced-d3ac24143add
 river_network <-
-  st_read("~/Downloads/ghy_000c11a_e/ghy_000c11a_e.shp") %>%
+  st_read("data/raw/lakes_rivers_shapefiles/ghy_000c11a_e/ghy_000c11a_e.shp") %>%
   st_crop(c(
     xmin = -141,
     xmax = -125,
@@ -129,26 +130,22 @@ p <- ggplot() +
     ),
     legend.position = "none"
   ) +
-  labs(
-    title = "Stations of the Malina cruise",
-    subtitle = str_wrap(
-      glue(
-        "Contains {nrow(station)} stations. The light gray line shows the ship track. The dot colors represent the transects visited."
-      ),
-      90
-    )
-  ) +
   paletteer::scale_color_paletteer_d("ggsci::default_nejm")
 
 # p + facet_wrap(~date)
 # p + facet_wrap(~station)
 
+destfile <- "graphs/fig01.pdf"
+
 ggsave(
-  "graphs/fig01.pdf",
+  destfile,
   device = cairo_pdf,
   width = 7,
   height = 6
 )
+
+knitr::plot_crop(destfile)
+
 
 # ggsave(
 #   "graphs/fig01.png",
