@@ -33,8 +33,19 @@ p <- water_flow_2009 %>%
     y = value,
     color = factor(transect)
   )) +
-  scale_x_date(breaks = scales::breaks_pretty(n = 4), expand = expansion(mult = c(0.1, 0.1))) +
-  scale_y_continuous(breaks = scales::breaks_pretty(n = 4), labels = scales::label_number_si()) +
+  # ggrepel::geom_text_repel(
+  #   data = station,
+  #   aes(label = station), color = "gray75",
+  #   size = 2
+  # ) +
+  scale_x_date(
+    breaks = scales::breaks_pretty(n = 4),
+    expand = expansion(mult = c(0.1, 0.1))
+  ) +
+  scale_y_continuous(
+    breaks = scales::breaks_pretty(n = 4),
+    labels = scales::label_number_si()
+  ) +
   xlab(NULL) +
   ylab(bquote("Daily discharge" ~ (m^3 ~ s^{-1}))) +
   paletteer::scale_colour_paletteer_d("ggsci::default_nejm") +
