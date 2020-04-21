@@ -25,7 +25,8 @@ df <- nutrient %>%
   inner_join(station, by = "cast") %>%
   filter(transect %in% c(600, 300)) %>%
   filter(depth <= 100) %>%
-  mutate(transect = factor(transect, levels = c("600", "300")))
+  mutate(transect = factor(transect, levels = c("600", "300"))) %>%
+  filter(station != 345)
 
 df %>%
   ggplot(aes(x = latitude, y = depth)) +
@@ -52,13 +53,18 @@ df <- df %>%
     c("no3_30028_u_m", "po4_30031_u_m", "longitude", "latitude"),
     .fns = ~ mean(.x, na.rm = TRUE)
   ), n = n()) %>%
+  ungroup() %>%
+  # Just make sure that latitudes line up
+  group_by(station) %>%
+  mutate(latitude = mean(latitude)) %>%
   ungroup()
 
 df %>%
   ggplot(aes(x = latitude, y = depth)) +
   geom_point() +
   scale_y_reverse() +
-  facet_wrap(~transect, scales = "free_x")
+  facet_wrap(~transect, scales = "free_x") +
+  ggrepel::geom_text_repel(aes(label = station))
 
 # Interpolate -------------------------------------------------------------
 
@@ -89,6 +95,7 @@ station_labels <- res %>%
 
 p1 <- res %>%
   unnest(interpolated_no3) %>%
+  select(-data, -interpolated_po4) %>%
   mutate(z = ifelse(z < 0, 0, z)) %>%
   drop_na(z) %>%
   ggplot(aes(
@@ -146,6 +153,7 @@ p1 <- res %>%
 
 p2 <- res %>%
   unnest(interpolated_po4) %>%
+  select(-data, -interpolated_no3) %>%
   mutate(z = ifelse(z < 0, 0, z)) %>%
   drop_na(z) %>%
   ggplot(aes(
