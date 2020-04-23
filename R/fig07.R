@@ -33,7 +33,7 @@ cyto <- inner_join(df, stations) %>%
 
 # We have 1 "duplicate". I will average the data.
 cyto %>%
-  count(station, depth, date, sort = TRUE)
+  count(station, depth, sort = TRUE)
 
 cyto %>%
   ggplot(aes(x = latitude, y = depth)) +
@@ -42,7 +42,7 @@ cyto %>%
   facet_wrap(~transect, scales = "free_x")
 
 cyto <- cyto %>%
-  group_by(station, date, cast, depth) %>%
+  group_by(station, cast, depth) %>%
   summarise(across(everything(), mean), n = n()) %>%
   ungroup() %>%
   mutate(transect = factor(transect, c("600", "300")))
@@ -56,7 +56,10 @@ res <- cyto %>%
     interpolate_2d,
     x = latitude,
     y = depth,
-    z = bacteria_cell_m_l
+    z = bacteria_cell_m_l,
+    n = 1,
+    m = 1,
+    h = 5
   ))
 
 res
@@ -95,7 +98,7 @@ p <- res %>%
     data = unnest(res, data),
     aes(x = latitude, y = depth),
     size = 0.05,
-    color = "#3c3c3c",
+    color = "gray50",
     inherit.aes = FALSE
   ) +
   facet_wrap(~transect, scales = "free_x") +
@@ -104,16 +107,18 @@ p <- res %>%
     expand = expansion(mult = c(0.01, 0.05)),
     breaks = scales::breaks_pretty(n = 4)
   ) +
-  scale_fill_viridis_c(
-    option = "B",
-    direction = -1,
+  paletteer::scale_fill_paletteer_c(
+    "oompaBase::jetColors",
+    breaks = scales::breaks_pretty(n = 5),
+    labels = scales::label_number_si(accuracy = 0.1),
     guide =
       guide_colorbar(
-        barwidth = unit(0.5, "cm"),
-        barheight = unit(4, "cm")
-      ),
-    breaks = scales::breaks_pretty(n = 6),
-    labels = scales::label_number()
+        barwidth = unit(8, "cm"),
+        barheight = unit(0.2, "cm"),
+        direction = "horizontal",
+        title.position = "top",
+        title.hjust = 0.5
+      )
   ) +
   labs(
     x = "Latitude",
@@ -125,13 +130,14 @@ p <- res %>%
     strip.background = element_blank(),
     strip.text = element_text(hjust = 0, size = 14, face = "bold"),
     panel.border = element_blank(),
-    axis.ticks = element_blank()
+    axis.ticks = element_blank(),
+    legend.position = "bottom"
   )
 
 # Save --------------------------------------------------------------------
 
 ggsave("graphs/fig07.pdf",
-       device = cairo_pdf,
-       width = 7,
-       height = 5 / 2
+  device = cairo_pdf,
+  width = 7,
+  height = 3
 )

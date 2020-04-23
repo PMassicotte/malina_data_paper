@@ -51,7 +51,7 @@ df_co2 %>%
 
 ggsave("graphs/fig09.pdf",
   device = cairo_pdf,
-  width = 6,
+  width = 7,
   height = 3
 )
 

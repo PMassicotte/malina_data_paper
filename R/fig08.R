@@ -52,7 +52,7 @@ df %>%
 # Average by station, depth
 
 df <- df %>%
-  select(-date) %>%
+  # select(-date) %>%
   group_by(station, transect, depth) %>%
   summarise(across(everything(), mean), n = n()) %>%
   ungroup()
@@ -67,6 +67,7 @@ df %>%
 # Interpolation -----------------------------------------------------------
 
 res <- df %>%
+  filter(primary_production_mgc_m3_24h <= 25) %>%
   group_nest(transect) %>%
   mutate(interpolated_pp = map(
     data,
@@ -110,7 +111,7 @@ p <- res %>%
     data = unnest(res, data),
     aes(x = latitude, y = depth),
     size = 0.05,
-    color = "#3c3c3c",
+    color = "gray50",
     inherit.aes = FALSE
   ) +
   facet_wrap(~transect, scales = "free_x") +
@@ -119,28 +120,31 @@ p <- res %>%
     expand = expansion(mult = c(0.01, 0.05)),
     breaks = scales::breaks_pretty(n = 4)
   ) +
-  scale_fill_viridis_c(
-    option = "B",
-    direction = -1,
+  paletteer::scale_fill_paletteer_c(
+    "oompaBase::jetColors",
     trans = "sqrt",
+    breaks = scales::breaks_pretty(n = 6),
     guide =
       guide_colorbar(
-        barwidth = unit(0.5, "cm"),
-        barheight = unit(4, "cm")
-      ),
-    breaks = scales::breaks_pretty(n = 6)
+        barwidth = unit(8, "cm"),
+        barheight = unit(0.2, "cm"),
+        direction = "horizontal",
+        title.position = "top",
+        title.hjust = 0.5
+      )
   ) +
   labs(
     x = "Latitude",
     y = "Depth (m)",
-    fill = bquote(PP~(mgC~m^{-3}~24*h^{-1}))
+    fill = bquote(Primary~production~(mgC~m^{-3}~24*h^{-1}))
   ) +
   theme(
     panel.grid = element_blank(),
     strip.background = element_blank(),
     strip.text = element_text(hjust = 0, size = 14, face = "bold"),
     panel.border = element_blank(),
-    axis.ticks = element_blank()
+    axis.ticks = element_blank(),
+    legend.position = "bottom"
   )
 
 # Save --------------------------------------------------------------------
@@ -148,5 +152,5 @@ p <- res %>%
 ggsave("graphs/fig08.pdf",
   device = cairo_pdf,
   width = 7,
-  height = 5 / 2
+  height = 3
 )

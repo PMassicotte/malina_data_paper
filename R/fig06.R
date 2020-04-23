@@ -98,13 +98,17 @@ res <- df %>%
     interpolate_2d,
     x = latitude,
     y = depth_m,
-    z = total_chlorophyll_a
+    z = total_chlorophyll_a,
+    n = 1,
+    m = 1,
+    h = 5
   ))
 
 res
 
 res2 <- res %>%
   unnest(interpolated_chla) %>%
+  select(-data) %>%
   mutate(z = ifelse(z < 0, 0, z)) %>%
   drop_na(z)
 
@@ -133,7 +137,7 @@ p <- res2 %>%
     data = unnest(res, data),
     aes(x = latitude, y = depth_m),
     size = 0.05,
-    color = "#3c3c3c",
+    color = "gray50",
     inherit.aes = FALSE
   ) +
   facet_wrap(~transect, scales = "free_x") +
@@ -142,14 +146,17 @@ p <- res2 %>%
     expand = expansion(mult = c(0.01, 0.05)),
     breaks = scales::breaks_pretty(n = 4)
   ) +
-  scale_fill_viridis_c(
-    option = "B",
-    direction = -1,
+  paletteer::scale_fill_paletteer_c(
+    "oompaBase::jetColors",
     trans = "sqrt",
+    breaks = scales::breaks_pretty(n = 6),
     guide =
       guide_colorbar(
-        barwidth = unit(0.5, "cm"),
-        barheight = unit(4, "cm")
+        barwidth = unit(8, "cm"),
+        barheight = unit(0.2, "cm"),
+        direction = "horizontal",
+        title.position = "top",
+        title.hjust = 0.5
       )
   ) +
   labs(
@@ -161,11 +168,13 @@ p <- res2 %>%
     panel.grid = element_blank(),
     strip.background = element_blank(),
     strip.text = element_text(hjust = 0, size = 14, face = "bold"),
-    panel.border = element_blank()
+    panel.border = element_blank(),
+    axis.ticks = element_blank(),
+    legend.position = "bottom"
   )
 
 ggsave("graphs/fig06.pdf",
   device = cairo_pdf,
   width = 7,
-  height = 5 / 2
+  height = 3
 )

@@ -19,6 +19,8 @@ station %>%
     color = "red"
   )
 
+ # ggrepel::geom_text_repel(aes(label = station))
+
 # Get the station information
 df <- nutrient %>%
   select(cast, bottle, depth, no3_30028_u_m, po4_30031_u_m) %>%
@@ -75,14 +77,20 @@ res <- df %>%
     interpolate_2d,
     x = latitude,
     y = depth,
-    z = no3_30028_u_m
+    z = no3_30028_u_m,
+    n = 1,
+    m = 1,
+    h = 4
   )) %>%
   mutate(interpolated_po4 = map(
     data,
     interpolate_2d,
     x = latitude,
     y = depth,
-    z = po4_30031_u_m
+    z = po4_30031_u_m,
+    n = 1,
+    m = 1,
+    h = 4
   ))
 
 # Plot --------------------------------------------------------------------
@@ -118,7 +126,7 @@ p1 <- res %>%
     data = unnest(res, data),
     aes(x = latitude, y = depth),
     size = 0.05,
-    color = "#3c3c3c",
+    color = "gray50",
     inherit.aes = FALSE
   ) +
   facet_wrap(~transect, scales = "free_x") +
@@ -127,13 +135,15 @@ p1 <- res %>%
     expand = expansion(mult = c(0.01, 0.05)),
     breaks = scales::breaks_pretty(n = 4)
   ) +
-  scale_fill_viridis_c(
-    option = "B",
-    direction = -1,
+  paletteer::scale_fill_paletteer_c("oompaBase::jetColors",
+    breaks = scales::breaks_pretty(n = 6),
     guide =
       guide_colorbar(
-        barwidth = unit(0.5, "cm"),
-        barheight = unit(4, "cm")
+        barwidth = unit(8, "cm"),
+        barheight = unit(0.2, "cm"),
+        direction = "horizontal",
+        title.position = "top",
+        title.hjust = 0.5
       )
   ) +
   labs(
@@ -148,7 +158,8 @@ p1 <- res %>%
     panel.border = element_blank(),
     axis.ticks = element_blank(),
     axis.title.x = element_blank(),
-    axis.text.x = element_blank()
+    axis.text.x = element_blank(),
+    legend.position = "bottom"
   )
 
 p2 <- res %>%
@@ -176,7 +187,7 @@ p2 <- res %>%
     data = unnest(res, data),
     aes(x = latitude, y = depth),
     size = 0.05,
-    color = "#3c3c3c",
+    color = "gray50",
     inherit.aes = FALSE
   ) +
   facet_wrap(~transect, scales = "free_x") +
@@ -185,13 +196,17 @@ p2 <- res %>%
     expand = expansion(mult = c(0.01, 0.05)),
     breaks = scales::breaks_pretty(n = 4)
   ) +
-  scale_fill_viridis_c(
-    option = "B",
-    direction = -1,
+  paletteer::scale_fill_paletteer_c("oompaBase::jetColors",
+    # option = "B",
+    # direction = -1,
+    breaks = scales::breaks_pretty(n = 6),
     guide =
       guide_colorbar(
-        barwidth = unit(0.5, "cm"),
-        barheight = unit(4, "cm")
+        barwidth = unit(8, "cm"),
+        barheight = unit(0.2, "cm"),
+        direction = "horizontal",
+        title.position = "top",
+        title.hjust = 0.5
       )
   ) +
   labs(
@@ -204,18 +219,20 @@ p2 <- res %>%
     strip.background = element_blank(),
     strip.text = element_text(hjust = 0, size = 14, face = "bold"),
     panel.border = element_blank(),
-    axis.ticks = element_blank()
+    axis.ticks = element_blank(),
+    legend.position = "bottom"
   )
 
 # Save plot ---------------------------------------------------------------
 
 p <- p1 + p2 +
-  plot_layout(ncol = 1)
+  plot_layout(ncol = 1) +
+  plot_annotation(tag_levels = "A")
 
 ggsave(
   "graphs/fig04.pdf",
   device = cairo_pdf,
   width = 7,
-  height = 5
+  height = 6
 )
 

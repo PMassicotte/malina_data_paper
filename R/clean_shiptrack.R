@@ -5,11 +5,12 @@ df <- read_csv("data/raw/csv/shiptrack.csv") %>%
   mutate(longitude = -longitude) %>%
   mutate(month = case_when(
     str_detect(date, "juil") ~ 7,
-    str_detect(date, "aout") ~ 8,
+    str_detect(date, "aout|aug") ~ 8,
     TRUE ~ NA_real_
   )) %>%
-  mutate(date = parse_number(date)) %>%
-  mutate(date = as.Date(paste("2009", month, date), format = "%Y %m %d")) %>%
+  mutate(day = str_match(date, "^\\d{2}")[, 1]) %>%
+  mutate(day = parse_number(day)) %>%
+  mutate(date = as.Date(paste("2009", month, day), format = "%Y %m %d")) %>%
   select(-month) %>%
   verify(longitude < 0)
 

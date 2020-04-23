@@ -1,12 +1,20 @@
+rm(list = ls())
+
 files <- fs::dir_ls("data/raw/csv/")
 
-file <- files[[1]]
+# file <- files[[1]]
+# file <- "data/raw/csv/hookerbarge.csv"
 
 extract_station <- function(file) {
   df <- fread(file) %>%
     janitor::clean_names() %>%
-    select(any_of(c("station", "cast", "date", "longitude", "latitude"))) %>%
-    mutate_at(vars(any_of(c("station", "cast", "longitude", "latitude"))), as.numeric) %>%
+    select(any_of(c(
+      "station", "cast", "date", "longitude", "latitude"
+    ))) %>%
+    mutate_at(vars(any_of(c("station"))), ~str_match(., "^\\d*")[, 1]) %>%
+    mutate_at(vars(any_of(
+      c("station", "cast", "longitude", "latitude")
+    )), as.numeric) %>%
     as_tibble()
 
   # Try to guess the date format
@@ -30,18 +38,17 @@ extract_station <- function(file) {
 
   # Use negative longitudes
   df <- df %>%
-    mutate_at(.vars = vars(one_of("longitude")), ~ifelse(. >0, -., .))
+    mutate_at(.vars = vars(one_of("longitude")), ~ ifelse(. > 0, -., .))
 
 
   return(df)
 }
 
 df <- map_df(files, extract_station) %>%
-  distinct(date, station, cast, longitude, latitude) %>%
+  distinct(station, cast, longitude, latitude) %>%
   drop_na() %>%
   filter(station >= 100) %>%
   mutate(transect = station %/% 100 * 100)
-
 
 # Manual clean-up ---------------------------------------------------------
 

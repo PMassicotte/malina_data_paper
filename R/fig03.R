@@ -73,14 +73,20 @@ res <- df %>%
     interpolate_2d,
     x = initial_latitude_deg,
     y = pres,
-    z = temp
+    z = temp,
+    n = 1,
+    m = 1,
+    h = 5
   )) %>%
   mutate(interpolated_salinity = map(
     data,
     interpolate_2d,
     x = initial_latitude_deg,
     y = pres,
-    z = sal
+    z = sal,
+    n = 1,
+    m = 1,
+    h = 5
   ))
 
 station_labels <- res %>%
@@ -111,7 +117,7 @@ p1 <- res %>%
     data = unnest(res, data),
     aes(x = initial_latitude_deg, y = pres),
     size = 0.05,
-    color = "#3c3c3c",
+    color = "gray50",
     inherit.aes = FALSE
   ) +
   facet_wrap(~transect, scales = "free_x") +
@@ -120,14 +126,16 @@ p1 <- res %>%
     expand = expansion(mult = c(0.01, 0.05)),
     breaks = scales::breaks_pretty(n = 4)
   ) +
-  scale_fill_viridis_c(
-    option = "B",
-    direction = -1,
-    guide =
-      guide_colorbar(
-        barwidth = unit(0.5, "cm"),
-        barheight = unit(4, "cm")
-      )
+  paletteer::scale_fill_paletteer_c("oompaBase::jetColors",
+  breaks = scales::breaks_pretty(n = 6),
+  guide =
+    guide_colorbar(
+      barwidth = unit(8, "cm"),
+      barheight = unit(0.2, "cm"),
+      direction = "horizontal",
+      title.position = "top",
+      title.hjust = 0.5
+    )
   ) +
   labs(
     x = "Latitude",
@@ -141,7 +149,8 @@ p1 <- res %>%
     panel.border = element_blank(),
     axis.ticks = element_blank(),
     axis.title.x = element_blank(),
-    axis.text.x = element_blank()
+    axis.text.x = element_blank(),
+    legend.position = "bottom"
   )
 
 # Salinity ----------------------------------------------------------------
@@ -151,7 +160,7 @@ p2 <- res %>%
   select(transect, x, y, z) %>%
   drop_na(z) %>%
   ggplot(aes(x = x, y = y, z = z, fill = z)) +
-  geom_isobands(color = NA, breaks = seq(-10, 60, by = 0.5)) +
+  geom_isobands(color = NA, breaks = seq(-10, 60, by = 0.25)) +
   geom_text(
     data = station_labels,
     aes(x = initial_latitude_deg, y = 0, label = station),
@@ -165,7 +174,7 @@ p2 <- res %>%
     data = unnest(res, data),
     aes(x = initial_latitude_deg, y = pres),
     size = 0.05,
-    color = "#3c3c3c",
+    color = "gray50",
     inherit.aes = FALSE
   ) +
   facet_wrap(~transect, scales = "free_x") +
@@ -174,13 +183,15 @@ p2 <- res %>%
     expand = expansion(mult = c(0.01, 0.05)),
     breaks = scales::breaks_pretty(n = 4)
   ) +
-  scale_fill_viridis_c(
-    option = "B",
-    direction = 1,
+  paletteer::scale_fill_paletteer_c("oompaBase::jetColors",
+    breaks = scales::breaks_pretty(n = 6),
     guide =
       guide_colorbar(
-        barwidth = unit(0.5, "cm"),
-        barheight = unit(4, "cm")
+        barwidth = unit(8, "cm"),
+        barheight = unit(0.2, "cm"),
+        direction = "horizontal",
+        title.position = "top",
+        title.hjust = 0.5
       )
   ) +
   labs(
@@ -193,7 +204,8 @@ p2 <- res %>%
     strip.background = element_blank(),
     strip.text = element_text(hjust = 0, size = 14, face = "bold"),
     panel.border = element_blank(),
-    axis.ticks = element_blank()
+    axis.ticks = element_blank(),
+    legend.position = "bottom"
   )
 
 # Save plot ---------------------------------------------------------------
@@ -204,5 +216,5 @@ p <- p1 + p2 +
 ggsave("graphs/fig03.pdf",
   device = cairo_pdf,
   width = 7,
-  height = 5
+  height = 6
 )

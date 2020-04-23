@@ -25,7 +25,10 @@ res <- df %>%
     interpolate_2d,
     x = latitude,
     y = depth,
-    z = bp_pmol_leu_l_1_h_1
+    z = bp_pmol_leu_l_1_h_1,
+    n = 1,
+    m = 1,
+    h = 5
   ))
 
 # Plot --------------------------------------------------------------------
@@ -62,7 +65,7 @@ p <- res %>%
     data = unnest(res, data),
     aes(x = latitude, y = depth),
     size = 0.05,
-    color = "#3c3c3c",
+    color = "gray50",
     inherit.aes = FALSE
   ) +
   facet_wrap(~transect, scales = "free_x") +
@@ -71,27 +74,31 @@ p <- res %>%
     expand = expansion(mult = c(0.01, 0.05)),
     breaks = scales::breaks_pretty(n = 4)
   ) +
-  scale_fill_viridis_c(
-    option = "B",
-    direction = -1,
+  paletteer::scale_fill_paletteer_c(
+    "oompaBase::jetColors",
+    # trans = "sqrt",
+    breaks = scales::breaks_pretty(n = 6),
     guide =
       guide_colorbar(
-        barwidth = unit(0.5, "cm"),
-        barheight = unit(4, "cm")
-      ),
-    breaks = scales::breaks_pretty(n = 6)
+        barwidth = unit(8, "cm"),
+        barheight = unit(0.2, "cm"),
+        direction = "horizontal",
+        title.position = "top",
+        title.hjust = 0.5
+      )
   ) +
   labs(
     x = "Latitude",
     y = "Depth (m)",
-    fill = bquote(BP~(pmol~leu~l^{-1}~h^{-1}))
+    fill = bquote("Bacterial production"~(pmol~leu~l^{-1}~h^{-1}))
   ) +
   theme(
     panel.grid = element_blank(),
     strip.background = element_blank(),
     strip.text = element_text(hjust = 0, size = 14, face = "bold"),
     panel.border = element_blank(),
-    axis.ticks = element_blank()
+    axis.ticks = element_blank(),
+    legend.position = "bottom"
   )
 
 # Save --------------------------------------------------------------------
@@ -99,5 +106,5 @@ p <- res %>%
 ggsave("graphs/fig10.pdf",
   device = cairo_pdf,
   width = 7,
-  height = 5 / 2
+  height = 3
 )

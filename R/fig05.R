@@ -63,35 +63,6 @@ cdom <- cdom %>%
 
 set.seed(1234)
 
-# aCDOM254
-
-p <- cdom %>%
-  filter(wav == 254) %>%
-  ggplot(aes(x = latitude, y = absorption)) +
-  geom_line() +
-  geom_point() +
-  facet_wrap(~transect, scales = "free_x", ncol = 1) +
-  ggrepel::geom_text_repel(aes(label = station), size = 3, color = "gray75") +
-  scale_x_continuous(breaks = scales::breaks_pretty(n = 4)) +
-  labs(
-    x = "Latitude",
-    y = bquote(italic(a)[CDOM](254)~(nm^{-1}))
-  ) +
-  theme(
-    strip.background = element_blank(),
-    strip.text = element_text(hjust = 0, size = 14, face = "bold"),
-    panel.border = element_blank(),
-    axis.ticks = element_blank()
-  )
-
-ggsave(
-  "graphs/fig05a.pdf",
-  device = cairo_pdf,
-  width = 10,
-  height = 12,
-  units = "cm"
-)
-
 # SUVA254
 
 doc <- read_csv("data/raw/csv/doc.csv") %>%
@@ -131,9 +102,8 @@ p <- cdom %>%
   )
 
 ggsave(
-  "graphs/fig05b.pdf",
+  "graphs/fig05.pdf",
   device = cairo_pdf,
-  width = 10,
-  height = 12,
-  units = "cm"
+  width = 5,
+  height = 5
 )

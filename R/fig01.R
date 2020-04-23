@@ -27,8 +27,6 @@ ne_river <-
     scale = "large"
   )
 
-ship_track <- read_csv("data/clean/shiptrack.csv")
-
 arrow <- tibble(
   x = -137,
   xend = -136.17,
@@ -63,12 +61,6 @@ set.seed(123)
 p <- ggplot() +
   geom_sf(data = ne_land, size = 0.15) +
   geom_sf(data = river_network, size = 0.01, color = "gray75") +
-  geom_path(
-    data = ship_track,
-    aes(x = longitude, y = latitude),
-    color = "gray75",
-    size = 0.25
-  ) +
   coord_sf(xlim = c(-141, -125), ylim = c(68.5, 72.5)) +
   geom_point(data = station, aes(
     x = longitude,
@@ -116,18 +108,14 @@ p <- ggplot() +
     size = 6,
     fontface = 2
   ) +
-  annotation_scale(
+  ggspatial::annotation_scale(
     location = "br",
     width_hint = 0.25,
     height = unit(0.1, "cm")
   ) +
   theme(
     axis.title = element_blank(),
-    panel.grid.major = element_line(
-      color = gray(0.75),
-      linetype = "dashed",
-      size = 0.25
-    ),
+    panel.grid = element_blank(),
     legend.position = "none"
   ) +
   paletteer::scale_color_paletteer_d("ggsci::default_nejm")
@@ -145,12 +133,3 @@ ggsave(
 )
 
 knitr::plot_crop(destfile)
-
-
-# ggsave(
-#   "graphs/fig01.png",
-#   type = "cairo",
-#   dpi = 600,
-#   width = 7,
-#   height = 6
-# )
