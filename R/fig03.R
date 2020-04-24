@@ -10,10 +10,42 @@ rm(list = ls())
 
 source("R/interpolate_fun.R")
 
-df <- fread("data/clean/ctd.csv") %>%
+ctd_rosette <- fread("data/clean/ctd.csv") %>%
   filter(pres <= 100) %>%
   filter(transect %in% c(600, 300)) %>%
   as_tibble() %>%
+  select(
+    station,
+    transect,
+    latitude = initial_latitude_deg,
+    longitude = initial_longitude_deg,
+    pres,
+    sal,
+    temp
+  ) %>%
+  drop_na()
+
+ctd_barge <- fread("data/clean/ctd_barge.csv") %>%
+  filter(pres <= 100) %>%
+  filter(transect %in% c(600, 300)) %>%
+  as_tibble() %>%
+  select(
+    station,
+    transect,
+    latitude,
+    longitude,
+    pres,
+    sal,
+    temp
+  ) %>%
+  drop_na()
+
+# Complete the dataset with barge data
+ctd_missing <- ctd_barge %>%
+  anti_join(ctd_rosette, by = c("station", "transect"))
+
+df <- ctd_rosette %>%
+  bind_rows(ctd_missing) %>%
   mutate(transect = factor(transect, levels = c("600", "300")))
 
 df
@@ -21,39 +53,18 @@ df
 df %>%
   count(transect)
 
-df <- df %>%
-  select(
-    start_date_time_utc,
-    station,
-    transect,
-    initial_latitude_deg,
-    initial_longitude_deg,
-    pres,
-    sal,
-    temp
-  )
-
 df %>%
-  group_by(initial_longitude_deg, initial_latitude_deg) %>%
-  filter(pres == min(pres)) %>%
-  ggplot(aes(x = initial_longitude_deg, y = initial_latitude_deg)) +
+  distinct(station, .keep_all = TRUE) %>%
+  ggplot(aes(x = longitude, y = latitude)) +
   geom_point() +
   ggrepel::geom_text_repel(aes(label = station))
 
-# Remove station 345 and only keep 1 station when there are more than 1
+# Remove station 345
 df <- df %>%
-  filter(station != 345) %>%
-  group_by(station) %>%
-  filter(start_date_time_utc == min(start_date_time_utc)) %>%
-  ungroup() %>%
-  select(-start_date_time_utc)
+  filter(station != 345)
 
 df %>%
-  group_by(initial_longitude_deg, initial_latitude_deg) %>%
-  filter(pres == min(pres)) %>%
-  ggplot(aes(x = initial_longitude_deg, y = initial_latitude_deg)) +
-  geom_point() +
-  ggrepel::geom_text_repel(aes(label = station))
+  count(station, pres, sort = TRUE)
 
 # Merge stations 689 and 690 ----------------------------------------------
 
@@ -62,6 +73,9 @@ df <- df %>%
   mutate(station = ifelse(station == 689, 690, station)) %>%
   group_by(station, transect, pres) %>%
   summarise(across(everything(), ~mean(.x, na.rm = TRUE))) %>%
+  ungroup() %>%
+  group_by(station) %>%
+  mutate(across(c("longitude", "latitude"), ~mean(.x, na.rm = TRUE))) %>%
   ungroup()
 
 # Interpolation -----------------------------------------------------------
@@ -71,7 +85,7 @@ res <- df %>%
   mutate(interpolated_temperature = map(
     data,
     interpolate_2d,
-    x = initial_latitude_deg,
+    x = latitude,
     y = pres,
     z = temp,
     n = 1,
@@ -81,7 +95,7 @@ res <- df %>%
   mutate(interpolated_salinity = map(
     data,
     interpolate_2d,
-    x = initial_latitude_deg,
+    x = latitude,
     y = pres,
     z = sal,
     n = 1,
@@ -94,7 +108,7 @@ station_labels <- res %>%
   group_by(transect) %>%
   ungroup() %>%
   distinct(station, .keep_all = TRUE) %>%
-  select(station, transect, initial_latitude_deg)
+  select(station, transect, latitude)
 
 # Temperature -------------------------------------------------------------
 
@@ -106,7 +120,7 @@ p1 <- res %>%
   geom_isobands(color = NA, breaks = seq(-10, 10, by = 0.25)) +
   geom_text(
     data = station_labels,
-    aes(x = initial_latitude_deg, y = 0, label = station),
+    aes(x = latitude, y = 0, label = station),
     inherit.aes = FALSE,
     size = 1.5,
     angle = 45,
@@ -115,7 +129,7 @@ p1 <- res %>%
   ) +
   geom_point(
     data = unnest(res, data),
-    aes(x = initial_latitude_deg, y = pres),
+    aes(x = latitude, y = pres),
     size = 0.05,
     color = "gray50",
     inherit.aes = FALSE
@@ -140,7 +154,7 @@ p1 <- res %>%
   labs(
     x = "Latitude",
     y = "Depth (m)",
-    fill = expression("T" ~ (degree * C))
+    fill = expression("Temperature" ~ (degree * C))
   ) +
   theme(
     panel.grid = element_blank(),
@@ -163,7 +177,7 @@ p2 <- res %>%
   geom_isobands(color = NA, breaks = seq(-10, 60, by = 0.25)) +
   geom_text(
     data = station_labels,
-    aes(x = initial_latitude_deg, y = 0, label = station),
+    aes(x = latitude, y = 0, label = station),
     inherit.aes = FALSE,
     size = 1.5,
     angle = 45,
@@ -172,7 +186,7 @@ p2 <- res %>%
   ) +
   geom_point(
     data = unnest(res, data),
-    aes(x = initial_latitude_deg, y = pres),
+    aes(x = latitude, y = pres),
     size = 0.05,
     color = "gray50",
     inherit.aes = FALSE
