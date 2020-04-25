@@ -19,7 +19,7 @@ library(data.table)
 library(assertr)
 library(sf)
 library(MBA)
-library(ggisoband)
+library(ggisoband) #devtools::install_github("clauswilke/ggisoband")
 library(patchwork)
 library(readxl)
 
@@ -30,9 +30,7 @@ theme_set(theme_poppins(base_size = 10))
 # Data cleaning -----------------------------------------------------------
 
 source("R/sqlite_to_csv.R")
-
 source("R/clean_stations.R")
-
 source("R/clean_optic_anap.R")
 source("R/clean_optic_aphy.R")
 source("R/clean_optic_atot.R")

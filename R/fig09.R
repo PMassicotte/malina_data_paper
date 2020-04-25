@@ -1,84 +1,70 @@
-# Figure on photo-oxydation potential.
+df <- read_excel(
+  "data/raw/Malina_data_compilation-Xie_DIC & CO photoproduction rate.xlsx",
+  skip = 4,
+  col_names = c(
+    "station",
+    "depth",
+    "cutoff_wavelength_50_percent",
+    "co2_production_moles_m3_s1",
+    "co_production_moles_m3_s1"
+  ),
+  na = c("no data", "", " ")
+)
 
-rm(list = ls())
-
-# https://www.biogeosciences.net/10/3731/2013/bg-10-3731-2013.pdf
-# https://www.biogeosciences.net/12/6669/2015/bg-12-6669-2015.pdf
-
-df <- read_csv("data/raw/csv/xie.csv")
-
-df %>%
-  count(type)
-
-df_co2 <- df %>%
+df_viz <- df %>%
   filter(depth == "surface") %>%
-  drop_na(c02_production_rate_moles_m_3_s_1) %>%
-  mutate(c02_production_rate_umoles_m_3_s_1 = c02_production_rate_moles_m_3_s_1 * 1e6) %>%
-  mutate(cutoff_wavelength_nm = factor(cutoff_wavelength_nm)) %>%
-  mutate(cutoff_wavelength_nm = fct_rev(cutoff_wavelength_nm)) %>%
   mutate(transect = station %/% 100 * 100) %>%
-  mutate(transect = factor(transect, c("600", "300")))
+  filter(transect %in% c(300, 600)) %>%
+  filter(cutoff_wavelength_50_percent %in% c(280, 295))
 
-df_co2
+df_viz
 
-df_co2 %>%
-  filter(cutoff_wavelength_nm == 280) %>%
-  ggplot(aes(
-    x = factor(station),
-    y = c02_production_rate_umoles_m_3_s_1
-  )) +
-  geom_col(position = "dodge", color = "white") +
-  scale_y_continuous(
-    labels = scales::label_number_auto(),
-    expand = expansion(mult = c(0, 0.02)),
-    breaks = scales::breaks_pretty(n = 3)
+mylabel <- c(
+  "280" = "280 nm",
+  "295" = "295 nm"
+)
+
+p <- df_viz %>%
+  pivot_longer(starts_with("co"), names_to = "type", values_to = "flux") %>%
+  ggplot(aes(x = flux * 1e6, y = factor(station), fill = type)) +
+  geom_col() +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.05))) +
+  scale_y_discrete(expand = expansion(mult = c(0, 0))) +
+  facet_grid(
+    transect ~ cutoff_wavelength_50_percent,
+    scales = "free_y",
+    labeller = labeller(cutoff_wavelength_50_percent = mylabel)
   ) +
-  facet_wrap(~transect, scales = "free") +
-  coord_flip() +
+  scale_fill_manual(
+    guide = guide_legend(
+      label.position = "top",
+      label.theme = element_text(face = "bold", family = "Poppins", size = 8),
+      keywidth = unit(4, "cm"),
+      keyheight = unit(0.2, "cm")
+    ),
+    breaks = c("co2_production_moles_m3_s1", "co_production_moles_m3_s1"),
+    labels = c(bquote("Carbon dioxide"~(CO[2])), bquote("Carbon monoxide"~(CO))),
+    values = c("#A3BE8CFF", "#BF616AFF")
+  ) +
   labs(
-    y = bquote(CO[2]~production~at~280~nm~(mu*moles~m^{-3}~s^{-1})),
-    x = NULL
+    x = bquote("Production rate" ~ (mu * moles ~ m^{-3} ~ s^{-1})),
+    y = "Station number"
   ) +
   theme(
     plot.caption = element_text(size = 4),
     legend.key.size = unit(0.5, "cm"),
-    legend.position = "none",
+    legend.position = "bottom",
+    legend.title = element_blank(),
     strip.background = element_blank(),
     strip.text = element_text(hjust = 0, size = 14, face = "bold"),
     panel.border = element_blank(),
     axis.ticks = element_blank()
   )
 
+paletteer::paletteer_d("nord::aurora")
+
 ggsave("graphs/fig09.pdf",
   device = cairo_pdf,
-  width = 7,
-  height = 3
+  width = 6,
+  height = 4
 )
-
-
-# df_co2 %>%
-#   ggplot(aes(
-#     x = cutoff_wavelength_nm,
-#     y = c02_production_rate_umoles_m_3_s_1
-#   )) +
-#   geom_col() +
-#   scale_y_continuous(
-#     labels = scales::label_number_auto(),
-#     expand = expansion(mult = c(0, 0.02)),
-#     breaks = scales::breaks_pretty(n = 3)
-#   ) +
-#   facet_wrap(~station) +
-#   coord_flip() +
-#   labs(
-#     y = bquote(CO[2]~production~(mu*moles~m^{-3}~s^{-1})),
-#     x = "Wavelength (nm)"
-#   ) +
-#   theme(
-#     plot.caption = element_text(size = 4),
-#     legend.key.size = unit(0.5, "cm"),
-#     legend.position = "none",
-#     strip.background = element_blank(),
-#     strip.text = element_text(hjust = 0, size = 14, face = "bold"),
-#     panel.border = element_blank(),
-#     axis.ticks = element_blank()
-#   )
