@@ -97,9 +97,11 @@ p <- ggplot() +
       title.theme = element_text(face = "bold", size = 8),
       label.theme = element_text(size = 6),
       keyheight = unit(0.25, "cm"),
-      keywidth = unit(1, "cm")
+      keywidth = unit(1, "cm"),
+      byrow = TRUE,
+      nrow = 1
     ),
-    breaks = -c(0, 1000, 2000, 3000)
+    breaks = -seq(0, 3000, by = 500)
   ) +
   geom_sf(data = ne_land, size = 0.15) +
   geom_sf(data = river_network, size = 0.01, color = "gray75") +
