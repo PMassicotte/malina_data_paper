@@ -11,8 +11,22 @@ library(raster)
 
 rm(list = ls())
 
+# station <- read_excel("data/raw/ctd_jens/malina_stations_all.xls", sheet = 2) %>%
+#   janitor::clean_names() %>%
+#   dplyr::select(-time_utc) %>%
+#   mutate(station = parse_number(station)) %>%
+#   arrange(station) %>%
+#   mutate(date = as.Date(date, "%m/%d/%y")) %>%
+#   distinct(station, .keep_all = TRUE) %>%
+#   mutate(transect = station %/% 100 * 100) %>%
+#   dplyr::select(station, longitude, latitude, transect)
+
 station <- read_csv("data/clean/stations.csv") %>%
-  distinct(station, .keep_all = TRUE)
+  distinct(station, .keep_all = TRUE) %>%
+  dplyr::select(station, longitude, latitude, transect)
+
+# station <- station %>%
+#   bind_rows(station2)
 
 ne_land <-
   rnaturalearth::ne_download(
@@ -53,7 +67,9 @@ river_network <-
 
 # Prepare bathymetry data -------------------------------------------------
 
-bathy <- raster::raster("data/raw/bathymetry/GEBCO_2019_27_Apr_2020_5e98c581281a/gebco_2019_n75.0_s68.0_w-145.0_e-120.0.tif") %>%
+bathy <- raster::raster(
+  "data/raw/bathymetry/GEBCO_2019_27_Apr_2020_5e98c581281a/gebco_2019_n75.0_s68.0_w-145.0_e-120.0.tif"
+) %>%
   # raster::sampleRegular(size = 1e4, asRaster = TRUE) %>%
   raster::rasterToPoints() %>%
   as_tibble() %>%
@@ -134,21 +150,21 @@ p <- ggplot() +
     y = 68.5,
     x = -137,
     label = "Mackenzie Delta",
-    family = "Exo"
+    family = "Poppins"
   ) +
   annotate(
     "text",
     y = 70.2,
     x = -126,
     label = "Amundsen\nGulf",
-    family = "Exo"
+    family = "Poppins"
   ) +
   annotate(
     "text",
     y = 72.2,
     x = -137.5,
     label = "Beaufort Sea",
-    family = "Exo",
+    family = "Poppins",
     size = 6,
     fontface = 2
   ) +
