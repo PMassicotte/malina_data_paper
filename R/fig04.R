@@ -1,118 +1,123 @@
-# Figure with nutrients.
+# <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+# AUTHOR:       Philippe Massicotte
+#
+# DESCRIPTION:
+#
+# Salinity/temperature plots.
+# <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 
 rm(list = ls())
 
 source("R/interpolate_fun.R")
 
-station <- read_csv("data/clean/stations.csv") %>%
-  distinct(station, cast, .keep_all = TRUE)
-
-nutrient <- read_csv("data/raw/csv/novembre.csv") %>%
-  janitor::clean_names()
-
-# Have a look to the localization of the nutrients
-station %>%
-  ggplot(aes(x = longitude, y = latitude)) +
-  geom_point() +
-  geom_point(
-    data = distinct(nutrient, longitude, latitude),
-    color = "red"
-  )
-
- # ggrepel::geom_text_repel(aes(label = station))
-
-# Get the station information
-df <- nutrient %>%
-  select(cast, bottle, depth, no3_30028_u_m, po4_30031_u_m) %>%
-  inner_join(station, by = "cast") %>%
+ctd_rosette <- fread("data/clean/ctd.csv") %>%
+  filter(pres <= 100) %>%
   filter(transect %in% c(600, 300)) %>%
-  filter(depth <= 100) %>%
-  mutate(transect = factor(transect, levels = c("600", "300"))) %>%
-  filter(station != 345)
+  as_tibble() %>%
+  select(
+    station,
+    transect,
+    latitude = initial_latitude_deg,
+    longitude = initial_longitude_deg,
+    pres,
+    sal,
+    temp
+  ) %>%
+  drop_na()
 
-df %>%
-  ggplot(aes(x = latitude, y = depth)) +
-  geom_point() +
-  scale_y_reverse() +
-  facet_wrap(~transect, scales = "free_x") +
-  labs(
-    title = "Should we average measure at the same depth?",
-    subtitle = "Check station 345 for example. It is because there are many cast for this station."
-  )
+ctd_barge <- fread("data/clean/ctd_barge.csv") %>%
+  filter(pres <= 100) %>%
+  filter(transect %in% c(600, 300)) %>%
+  as_tibble() %>%
+  select(
+    station,
+    transect,
+    latitude,
+    longitude,
+    pres,
+    sal,
+    temp
+  ) %>%
+  drop_na()
 
-# At station 345, there are 3 measures, probable 3 casts... I will average them
-# (also the latitude, longitude positions).
-df %>%
-  count(station, depth, sort = TRUE)
+# Complete the dataset with barge data
+ctd_missing <- ctd_barge %>%
+  anti_join(ctd_rosette, by = c("station", "transect"))
 
-# Average by station/depth ------------------------------------------------
+df <- ctd_rosette %>%
+  bind_rows(ctd_missing) %>%
+  mutate(transect = factor(transect, levels = c("600", "300")))
 
 df
 
-df <- df %>%
-  group_by(transect, station, depth) %>%
-  summarise(across(
-    c("no3_30028_u_m", "po4_30031_u_m", "longitude", "latitude"),
-    .fns = ~ mean(.x, na.rm = TRUE)
-  ), n = n()) %>%
-  ungroup() %>%
-  # Just make sure that latitudes line up
-  group_by(station) %>%
-  mutate(latitude = mean(latitude)) %>%
-  ungroup()
+df %>%
+  count(transect)
 
 df %>%
-  ggplot(aes(x = latitude, y = depth)) +
+  distinct(station, .keep_all = TRUE) %>%
+  ggplot(aes(x = longitude, y = latitude)) +
   geom_point() +
-  scale_y_reverse() +
-  facet_wrap(~transect, scales = "free_x") +
   ggrepel::geom_text_repel(aes(label = station))
 
-# Interpolate -------------------------------------------------------------
+# Remove station 345
+df <- df %>%
+  filter(station != 345)
+
+df %>%
+  count(station, pres, sort = TRUE)
+
+# Merge stations 689 and 690 ----------------------------------------------
+
+# 689 and 690 are very close, I will merge them for the figure
+df <- df %>%
+  mutate(station = ifelse(station == 689, 690, station)) %>%
+  group_by(station, transect, pres) %>%
+  summarise(across(everything(), ~mean(.x, na.rm = TRUE))) %>%
+  ungroup() %>%
+  group_by(station) %>%
+  mutate(across(c("longitude", "latitude"), ~mean(.x, na.rm = TRUE))) %>%
+  ungroup()
+
+# Interpolation -----------------------------------------------------------
 
 res <- df %>%
   group_nest(transect) %>%
-  mutate(interpolated_no3 = map(
+  mutate(interpolated_temperature = map(
     data,
     interpolate_2d,
     x = latitude,
-    y = depth,
-    z = no3_30028_u_m,
+    y = pres,
+    z = temp,
     n = 1,
     m = 1,
-    h = 4
+    h = 5
   )) %>%
-  mutate(interpolated_po4 = map(
+  mutate(interpolated_salinity = map(
     data,
     interpolate_2d,
     x = latitude,
-    y = depth,
-    z = po4_30031_u_m,
+    y = pres,
+    z = sal,
     n = 1,
     m = 1,
-    h = 4
+    h = 5
   ))
-
-# Plot --------------------------------------------------------------------
 
 station_labels <- res %>%
   unnest(data) %>%
   group_by(transect) %>%
   ungroup() %>%
-  distinct(station, .keep_all = TRUE)
+  distinct(station, .keep_all = TRUE) %>%
+  select(station, transect, latitude)
+
+# Temperature -------------------------------------------------------------
 
 p1 <- res %>%
-  unnest(interpolated_no3) %>%
-  select(-data, -interpolated_po4) %>%
-  mutate(z = ifelse(z < 0, 0, z)) %>%
+  unnest(interpolated_temperature) %>%
+  select(transect, x, y, z) %>%
   drop_na(z) %>%
-  ggplot(aes(
-    x = x,
-    y = y,
-    z = z,
-    fill = z
-  )) +
-  geom_isobands(color = NA, breaks = seq(-1, 200, by = 0.5)) +
+  ggplot(aes(x = x, y = y, z = z, fill = z)) +
+  geom_isobands(color = NA, breaks = seq(-10, 10, by = 0.25)) +
   geom_text(
     data = station_labels,
     aes(x = latitude, y = 0, label = station),
@@ -124,7 +129,7 @@ p1 <- res %>%
   ) +
   geom_point(
     data = unnest(res, data),
-    aes(x = latitude, y = depth),
+    aes(x = latitude, y = pres),
     size = 0.05,
     color = "gray50",
     inherit.aes = FALSE
@@ -136,20 +141,20 @@ p1 <- res %>%
     breaks = scales::breaks_pretty(n = 4)
   ) +
   paletteer::scale_fill_paletteer_c("oompaBase::jetColors",
-    breaks = scales::breaks_pretty(n = 6),
-    guide =
-      guide_colorbar(
-        barwidth = unit(8, "cm"),
-        barheight = unit(0.2, "cm"),
-        direction = "horizontal",
-        title.position = "top",
-        title.hjust = 0.5
-      )
+  breaks = scales::breaks_pretty(n = 6),
+  guide =
+    guide_colorbar(
+      barwidth = unit(8, "cm"),
+      barheight = unit(0.2, "cm"),
+      direction = "horizontal",
+      title.position = "top",
+      title.hjust = 0.5
+    )
   ) +
   labs(
     x = "Latitude",
     y = "Depth (m)",
-    fill = bquote(NO[3])
+    fill = expression("Temperature" ~ (degree * C))
   ) +
   theme(
     panel.grid = element_blank(),
@@ -162,18 +167,14 @@ p1 <- res %>%
     legend.position = "bottom"
   )
 
+# Salinity ----------------------------------------------------------------
+
 p2 <- res %>%
-  unnest(interpolated_po4) %>%
-  select(-data, -interpolated_no3) %>%
-  mutate(z = ifelse(z < 0, 0, z)) %>%
+  unnest(interpolated_salinity) %>%
+  select(transect, x, y, z) %>%
   drop_na(z) %>%
-  ggplot(aes(
-    x = x,
-    y = y,
-    z = z,
-    fill = z
-  )) +
-  geom_isobands(color = NA, breaks = seq(-1, 200, by = 0.05)) +
+  ggplot(aes(x = x, y = y, z = z, fill = z)) +
+  geom_isobands(color = NA, breaks = seq(-10, 60, by = 0.25)) +
   geom_text(
     data = station_labels,
     aes(x = latitude, y = 0, label = station),
@@ -185,7 +186,7 @@ p2 <- res %>%
   ) +
   geom_point(
     data = unnest(res, data),
-    aes(x = latitude, y = depth),
+    aes(x = latitude, y = pres),
     size = 0.05,
     color = "gray50",
     inherit.aes = FALSE
@@ -197,8 +198,6 @@ p2 <- res %>%
     breaks = scales::breaks_pretty(n = 4)
   ) +
   paletteer::scale_fill_paletteer_c("oompaBase::jetColors",
-    # option = "B",
-    # direction = -1,
     breaks = scales::breaks_pretty(n = 6),
     guide =
       guide_colorbar(
@@ -212,7 +211,7 @@ p2 <- res %>%
   labs(
     x = "Latitude",
     y = "Depth (m)",
-    fill = bquote(PO[4])
+    fill = "Salinity"
   ) +
   theme(
     panel.grid = element_blank(),
@@ -226,13 +225,10 @@ p2 <- res %>%
 # Save plot ---------------------------------------------------------------
 
 p <- p1 + p2 +
-  plot_layout(ncol = 1) +
-  plot_annotation(tag_levels = "A")
+  plot_layout(ncol = 1)
 
-ggsave(
-  "graphs/fig04.pdf",
+ggsave("graphs/fig04.pdf",
   device = cairo_pdf,
   width = 7,
   height = 6
 )
-

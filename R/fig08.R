@@ -1,81 +1,68 @@
-# Figure on primary production
+# Figure on bacterial abundance
 
 rm(list = ls())
 
 source("R/interpolate_fun.R")
 
-# read_csv(
-#   "data/raw/database 17nov2010__DATA.csv",
-#   skip = 3,
-#   col_names = c(
-#     "cast",
-#     "bottle",
-#     "latitude",
-#     "longitude",
-#     "depth"
-#   )
-# )
+df <- read_csv("data/raw/csv/cytometry.csv") %>%
+  mutate(date = as.Date(date, "%d-%b-%y")) %>%
+  select(station, cast = ctd, depth, bacteria_cell_m_l) %>%
+  filter(depth <= 100) %>%
+  filter(station != 345) %>%
+  drop_na(bacteria_cell_m_l)
 
-pp <- data.table::fread("data/raw/database 17nov2010__DATA.csv",
-  skip = 3,
-  select = c(1, 2, 5, 20), col.names = c(
-    "cast",
-    "bottle",
-    "depth",
-    "primary_production_mgc_m3_24h"
-  )
-) %>%
-  as_tibble() %>%
-  drop_na(primary_production_mgc_m3_24h) %>%
-  filter(depth <= 100)
+df
 
-pp
-
-stations <- read_csv("data/clean/stations.csv") %>%
-  distinct(station, cast, transect, .keep_all = TRUE) %>%
-  filter(station != 345)
-
-df <- inner_join(stations, pp, by = "cast") %>%
-  filter(transect %in% c(600, 300)) %>%
-  mutate(transect = factor(transect, levels = c("600", "300")))
-
-df %>%
-  count(station, depth, sort = TRUE)
-
-df %>%
-  ggplot(aes(x = latitude, y = depth)) +
-  geom_point() +
-  scale_y_reverse() +
-  facet_wrap(~transect, scales = "free_x") +
-  ggrepel::geom_text_repel(aes(label = station))
-
-# Average by station, depth
+# Get data for which we have a station number
 
 df <- df %>%
-  # select(-date) %>%
-  group_by(station, transect, depth) %>%
-  summarise(across(everything(), mean), n = n()) %>%
-  ungroup()
+  filter(str_detect(station, "^\\d{3}$")) %>%
+  type_convert()
 
-df %>%
+df
+
+# Get station information
+
+stations <- read_csv("data/clean/stations.csv") %>%
+  distinct(station, cast, .keep_all = TRUE)
+
+anti_join(df, stations)
+
+cyto <- inner_join(df, stations) %>%
+  filter(transect %in% c(300, 600))
+
+# We have 1 "duplicate". I will average the data.
+cyto %>%
+  count(station, depth, sort = TRUE)
+
+cyto %>%
   ggplot(aes(x = latitude, y = depth)) +
   geom_point() +
   scale_y_reverse() +
-  facet_wrap(~transect, scales = "free_x") +
-  ggrepel::geom_text_repel(aes(label = station))
+  facet_wrap(~transect, scales = "free_x")
+
+cyto <- cyto %>%
+  group_by(station, cast, depth) %>%
+  summarise(across(everything(), mean), n = n()) %>%
+  ungroup() %>%
+  mutate(transect = factor(transect, c("600", "300")))
 
 # Interpolation -----------------------------------------------------------
 
-res <- df %>%
-  filter(primary_production_mgc_m3_24h <= 25) %>%
+res <- cyto %>%
   group_nest(transect) %>%
-  mutate(interpolated_pp = map(
+  mutate(interpolated_bacteria_cell_m_l = map(
     data,
     interpolate_2d,
     x = latitude,
     y = depth,
-    z = primary_production_mgc_m3_24h
+    z = bacteria_cell_m_l,
+    n = 1,
+    m = 1,
+    h = 5
   ))
+
+res
 
 # Plot --------------------------------------------------------------------
 
@@ -87,7 +74,7 @@ station_labels <- res %>%
   select(station, transect, latitude)
 
 p <- res %>%
-  unnest(interpolated_pp) %>%
+  unnest(interpolated_bacteria_cell_m_l) %>%
   select(-data) %>%
   drop_na(z) %>%
   mutate(z = ifelse(z < 0, 0, z)) %>%
@@ -97,7 +84,7 @@ p <- res %>%
     z = z,
     fill = z
   )) +
-  geom_isobands(color = NA, breaks = seq(0, 200, by = 0.1)) +
+  geom_isobands(color = NA, breaks = seq(0, 2e8, by = 3e4)) +
   geom_text(
     data = station_labels,
     aes(x = latitude, y = 0, label = station),
@@ -122,8 +109,8 @@ p <- res %>%
   ) +
   paletteer::scale_fill_paletteer_c(
     "oompaBase::jetColors",
-    trans = "sqrt",
-    breaks = scales::breaks_pretty(n = 6),
+    breaks = scales::breaks_pretty(n = 5),
+    labels = scales::label_number_si(accuracy = 0.1),
     guide =
       guide_colorbar(
         barwidth = unit(8, "cm"),
@@ -136,7 +123,7 @@ p <- res %>%
   labs(
     x = "Latitude",
     y = "Depth (m)",
-    fill = bquote(Primary~production~(mgC~m^{-3}~24*h^{-1}))
+    fill = bquote(Bacteria~(cells~mL^{-1}))
   ) +
   theme(
     panel.grid = element_blank(),
