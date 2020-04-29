@@ -149,7 +149,7 @@ p1 <- res %>%
   labs(
     x = "Latitude",
     y = "Depth (m)",
-    fill = bquote(NO[3])
+    fill = bquote(NO[3]~("µmol"~L^{-1}))
   ) +
   theme(
     panel.grid = element_blank(),
@@ -212,7 +212,7 @@ p2 <- res %>%
   labs(
     x = "Latitude",
     y = "Depth (m)",
-    fill = bquote(PO[4])
+    fill = bquote(PO[4]~("µmol"~L^{-1}))
   ) +
   theme(
     panel.grid = element_blank(),

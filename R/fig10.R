@@ -47,7 +47,7 @@ p <- df_viz %>%
     values = c("#A3BE8CFF", "#BF616AFF")
   ) +
   labs(
-    x = bquote("Production rate" ~ (mu * moles ~ m^{-3} ~ s^{-1})),
+    x = bquote("Production rate"~("µmol"~m^{-3}~s^{-1})),
     y = "Station number"
   ) +
   theme(
