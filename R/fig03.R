@@ -73,6 +73,11 @@ lab <- c(
   "lhl_percent" = "Lower halocline water\n(Atlantic water)"
 )
 
+facet_lab <- c(
+  "600" = "Transect 600",
+  "300" = "Transect 300"
+)
+
 p <- res %>%
   select(-data) %>%
   unnest(interpolated_percent) %>%
@@ -116,7 +121,8 @@ p <- res %>%
   ) +
   facet_grid(
     water_type2 ~ transect,
-    scales = "free_x"
+    scales = "free_x",
+    labeller = labeller(transect = facet_lab)
   ) +
   scale_y_reverse(expand = expansion(mult = c(0.01, 0.1))) +
   scale_x_continuous(
@@ -154,7 +160,8 @@ p <- res %>%
 
 ggsave(
   "graphs/fig03.pdf",
-  width = 7,
-  height = 8,
-  device = cairo_pdf
+  width = 17.5,
+  height = 17.5,
+  device = cairo_pdf,
+  units = "cm"
 )

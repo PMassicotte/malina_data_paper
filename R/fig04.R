@@ -110,6 +110,11 @@ station_labels <- res %>%
   distinct(station, .keep_all = TRUE) %>%
   select(station, transect, latitude)
 
+lab <- c(
+  "600" = "Transect 600",
+  "300" = "Transect 300"
+)
+
 # Temperature -------------------------------------------------------------
 
 p1 <- res %>%
@@ -134,7 +139,7 @@ p1 <- res %>%
     color = "gray50",
     inherit.aes = FALSE
   ) +
-  facet_wrap(~transect, scales = "free_x") +
+  facet_wrap(~transect, scales = "free_x", labeller = labeller(transect = lab)) +
   scale_y_reverse(expand = expansion(mult = c(0.01, 0.1))) +
   scale_x_continuous(
     expand = expansion(mult = c(0.01, 0.05)),
@@ -191,7 +196,7 @@ p2 <- res %>%
     color = "gray50",
     inherit.aes = FALSE
   ) +
-  facet_wrap(~transect, scales = "free_x") +
+  facet_wrap(~transect, scales = "free_x", labeller = labeller(transect = lab)) +
   scale_y_reverse(expand = expansion(mult = c(0.01, 0.1))) +
   scale_x_continuous(
     expand = expansion(mult = c(0.01, 0.05)),
@@ -211,7 +216,7 @@ p2 <- res %>%
   labs(
     x = "Latitude",
     y = "Depth (m)",
-    fill = "Salinity"
+    fill = "Salinity (PSU)"
   ) +
   theme(
     panel.grid = element_blank(),
@@ -225,10 +230,12 @@ p2 <- res %>%
 # Save plot ---------------------------------------------------------------
 
 p <- p1 + p2 +
-  plot_layout(ncol = 1)
+  plot_layout(ncol = 1) +
+  plot_annotation(tag_levels = "A")
 
 ggsave("graphs/fig04.pdf",
   device = cairo_pdf,
-  width = 7,
-  height = 6
+  width = 17.5,
+  height = 14,
+  units = "cm"
 )

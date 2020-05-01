@@ -40,6 +40,11 @@ station_labels <- res %>%
   distinct(station, .keep_all = TRUE) %>%
   select(station, transect, latitude)
 
+lab <- c(
+  "600" = "Transect 600",
+  "300" = "Transect 300"
+)
+
 p <- res %>%
   unnest(interpolated_bp) %>%
   select(-data) %>%
@@ -68,7 +73,7 @@ p <- res %>%
     color = "gray50",
     inherit.aes = FALSE
   ) +
-  facet_wrap(~transect, scales = "free_x") +
+  facet_wrap(~transect, scales = "free_x", labeller = labeller(transect = lab)) +
   scale_y_reverse(expand = expansion(mult = c(0.01, 0.1))) +
   scale_x_continuous(
     expand = expansion(mult = c(0.01, 0.05)),
@@ -105,6 +110,7 @@ p <- res %>%
 
 ggsave("graphs/fig11.pdf",
   device = cairo_pdf,
-  width = 7,
-  height = 3
+  width = 17.5,
+  height = 7,
+  units = "cm"
 )

@@ -63,6 +63,11 @@ cdom <- cdom %>%
 
 set.seed(1234)
 
+lab <- c(
+  "600" = "Transect 600",
+  "300" = "Transect 300"
+)
+
 # SUVA254
 
 doc <- read_csv("data/raw/csv/doc.csv") %>%
@@ -83,11 +88,11 @@ p <- cdom %>%
   ggplot(aes(x = latitude, y = suva254)) +
   geom_line() +
   geom_point() +
-  facet_wrap(~transect, scales = "free_x", ncol = 1) +
+  facet_wrap(~transect, scales = "free_x", ncol = 1, labeller = labeller(transect = lab)) +
   ggrepel::geom_text_repel(aes(label = station),
   size = 2.5,
   color = "gray50",
-  box.padding = unit(0.15, "lines")
+  box.padding = unit(0.25, "lines")
 ) +
   scale_x_continuous(breaks = scales::breaks_pretty(n = 6)) +
   labs(
@@ -104,6 +109,7 @@ p <- cdom %>%
 ggsave(
   "graphs/fig06.pdf",
   device = cairo_pdf,
-  width = 5,
-  height = 5
+  width = 17.5 / 2,
+  height = 15 / 2,
+  units = "cm"
 )

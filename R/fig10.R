@@ -15,13 +15,19 @@ df_viz <- df %>%
   filter(depth == "surface") %>%
   mutate(transect = station %/% 100 * 100) %>%
   filter(transect %in% c(300, 600)) %>%
-  filter(cutoff_wavelength_50_percent %in% c(280, 295))
+  filter(cutoff_wavelength_50_percent %in% c(280, 295)) %>%
+  mutate(transect = factor(transect, levels = c("600", "300")))
 
 df_viz
 
 mylabel <- c(
   "280" = "280 nm",
   "295" = "295 nm"
+)
+
+lab <- c(
+  "600" = "Transect 600",
+  "300" = "Transect 300"
 )
 
 p <- df_viz %>%
@@ -33,7 +39,7 @@ p <- df_viz %>%
   facet_grid(
     transect ~ cutoff_wavelength_50_percent,
     scales = "free_y",
-    labeller = labeller(cutoff_wavelength_50_percent = mylabel)
+    labeller = labeller(cutoff_wavelength_50_percent = mylabel, transect = lab)
   ) +
   scale_fill_manual(
     guide = guide_legend(
@@ -58,13 +64,15 @@ p <- df_viz %>%
     strip.background = element_blank(),
     strip.text = element_text(hjust = 0, size = 14, face = "bold"),
     panel.border = element_blank(),
-    axis.ticks = element_blank()
+    axis.ticks = element_blank(),
+    panel.spacing.y = unit(2, "lines")
   )
 
 paletteer::paletteer_d("nord::aurora")
 
 ggsave("graphs/fig10.pdf",
   device = cairo_pdf,
-  width = 6,
-  height = 4
+  width = 17.5 / 1.5,
+  height = 12,
+  units = "cm"
 )

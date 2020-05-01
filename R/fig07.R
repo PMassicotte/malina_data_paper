@@ -121,6 +121,13 @@ station_labels <- res %>%
 
 station_labels
 
+# Plot --------------------------------------------------------------------
+
+lab <- c(
+  "600" = "Transect 600",
+  "300" = "Transect 300"
+)
+
 p <- res2 %>%
   ggplot(aes(x = x, y = y, z = z, fill = z)) +
   geom_isobands(color = NA, breaks = seq(0, 200, by = 0.1)) +
@@ -140,7 +147,7 @@ p <- res2 %>%
     color = "gray50",
     inherit.aes = FALSE
   ) +
-  facet_wrap(~transect, scales = "free_x") +
+  facet_wrap(~transect, scales = "free_x", labeller = labeller(transect = lab)) +
   scale_y_reverse(expand = expansion(mult = c(0.01, 0.1))) +
   scale_x_continuous(
     expand = expansion(mult = c(0.01, 0.05)),
@@ -162,7 +169,7 @@ p <- res2 %>%
   labs(
     x = "Latitude",
     y = "Depth (m)",
-    fill = "TChla"
+    fill = bquote("Total chlorophyll"~italic(a)~(mg~m^{-3}))
   ) +
   theme(
     panel.grid = element_blank(),
@@ -175,6 +182,7 @@ p <- res2 %>%
 
 ggsave("graphs/fig07.pdf",
   device = cairo_pdf,
-  width = 7,
-  height = 3
+  width = 17.5,
+  height = 7,
+  units = "cm"
 )

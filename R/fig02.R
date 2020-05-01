@@ -42,21 +42,19 @@ p <- water_flow_2009 %>%
   ylab(bquote("Daily discharge" ~ (m^3 ~ s^{-1}))) +
   paletteer::scale_colour_paletteer_d("ggsci::default_nejm") +
   theme(
-    plot.caption = element_text(size = 4),
     legend.key.size = unit(0.5, "cm"),
     legend.position = "none",
-    strip.background = element_blank(),
-    strip.text = element_text(hjust = 0, size = 14, face = "bold"),
     panel.border = element_blank(),
     axis.ticks = element_blank(),
     panel.grid = element_line(size = 0.25),
     panel.grid.major.x = element_blank(),
-    panel.grid.minor.x = element_blank(),
+    panel.grid.minor.x = element_blank()
   )
 
 ggsave(
   "graphs/fig02.pdf",
   device = cairo_pdf,
-  width = 7,
-  height = 3
+  width = 17.5,
+  height = 17.5 / 1.618, # Golden ratio
+  units = "cm"
 )

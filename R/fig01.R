@@ -197,8 +197,9 @@ destfile <- "graphs/fig01.pdf"
 ggsave(
   destfile,
   device = cairo_pdf,
-  width = 7,
-  height = 6
+  width = 17.5,
+  height = 17.5,
+  units = "cm"
 )
 
 knitr::plot_crop(destfile)
