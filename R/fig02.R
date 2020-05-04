@@ -10,6 +10,14 @@ water_flow <- fread("data/raw/Daily__Sep-6-2019_05_08_04PM.csv") %>%
   filter(param == 1) %>%
   mutate(date = lubridate::ymd(date))
 
+range(water_flow$date)
+
+water_flow_1972_2016 <- water_flow %>%
+  group_by(yday = lubridate::yday(date)) %>%
+  filter(yday <= 365) %>%
+  summarise(mean_value = mean(value)) %>%
+  mutate(date = as.Date(glue("2009-{yday}"), "%Y-%j"))
+
 water_flow_2009 <- water_flow %>%
   filter(lubridate::year(date) == 2009)
 
@@ -24,7 +32,13 @@ water_flow_malina <- water_flow %>%
 
 p <- water_flow_2009 %>%
   ggplot(aes(x = date, y = value)) +
-  geom_line(size = 0.5, color = "gray50") +
+  geom_area(
+    data = water_flow_1972_2016,
+    aes(x = date, y = mean_value),
+    fill = "#3c3c3c",
+    alpha = 0.25
+  ) +
+  geom_line(size = 0.5, color = "black") +
   geom_line(
     data = water_flow_malina,
     color = "#CA3E47",
@@ -39,7 +53,9 @@ p <- water_flow_2009 %>%
     labels = scales::label_number_si()
   ) +
   xlab(NULL) +
-  ylab(bquote("Daily discharge" ~ (m^3 ~ s^{-1}))) +
+  ylab(bquote("Daily discharge" ~ (m^3 ~ s^{
+    -1
+  }))) +
   paletteer::scale_colour_paletteer_d("ggsci::default_nejm") +
   theme(
     legend.key.size = unit(0.5, "cm"),
