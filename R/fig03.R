@@ -16,7 +16,8 @@ df <-
   mutate(transect = station %/% 100 * 100) %>%
   filter(transect %in% c(300, 600)) %>%
   mutate(transect = factor(transect, levels = c("600", "300"))) %>%
-  filter(depth <= 250)
+  filter(depth <= 250) %>%
+  filter(station != 670)
 
 df
 
