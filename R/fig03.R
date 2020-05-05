@@ -125,7 +125,7 @@ p <- res %>%
     scales = "free_x",
     labeller = labeller(transect = facet_lab)
   ) +
-  scale_y_reverse(expand = expansion(mult = c(0.01, 0.1))) +
+  scale_y_reverse(expand = expansion(mult = c(0.01, 0.15))) +
   scale_x_continuous(
     expand = expansion(mult = c(0.01, 0.05)),
     breaks = scales::breaks_pretty(n = 4)

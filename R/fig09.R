@@ -120,7 +120,7 @@ p <- res %>%
     inherit.aes = FALSE
   ) +
   facet_wrap(~transect, scales = "free_x", labeller = labeller(transect = lab)) +
-  scale_y_reverse(expand = expansion(mult = c(0.01, 0.1))) +
+  scale_y_reverse(expand = expansion(mult = c(0.01, 0.15))) +
   scale_x_continuous(
     expand = expansion(mult = c(0.01, 0.05)),
     breaks = scales::breaks_pretty(n = 4)
