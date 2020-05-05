@@ -94,7 +94,7 @@ set.seed(123)
 
 # station <- station %>% add_count(station, sort = TRUE) %>% filter(n > 1)
 
-p <- ggplot() +
+p1 <- ggplot() +
   ggisoband::geom_isobands(
     data = bathy_interpolated,
     aes(xyz.est.x, xyz.est.y, fill = xyz.est.z, z = xyz.est.z),
@@ -113,7 +113,7 @@ p <- ggplot() +
       title.theme = element_text(face = "bold", size = 8),
       label.theme = element_text(size = 6),
       keyheight = unit(0.25, "cm"),
-      keywidth = unit(1, "cm"),
+      keywidth = unit(0.75, "cm"),
       byrow = TRUE,
       nrow = 1
     ),
@@ -150,14 +150,16 @@ p <- ggplot() +
     y = 68.5,
     x = -137,
     label = "Mackenzie Delta",
-    family = "Poppins"
+    family = "Poppins",
+    size = 3
   ) +
   annotate(
     "text",
     y = 70.2,
     x = -126,
     label = "Amundsen\nGulf",
-    family = "Poppins"
+    family = "Poppins",
+    size = 3
   ) +
   annotate(
     "text",
@@ -191,6 +193,127 @@ p <- ggplot() +
 
 # p + facet_wrap(~date)
 # p + facet_wrap(~station)
+
+# destfile <- "graphs/fig01.pdf"
+#
+# ggsave(
+#   destfile,
+#   device = cairo_pdf,
+#   width = 17.5,
+#   height = 17.5,
+#   units = "cm"
+# )
+#
+# knitr::plot_crop(destfile)
+
+# Bathymetry profiles -----------------------------------------------------
+
+# Extract bathymetry along the south -> north gradient
+
+transect <- station %>%
+  filter(transect %in% c(600, 300)) %>%
+  filter(station != 345) %>%
+  st_as_sf(coords = c("longitude", "latitude"), crs = 4326) %>%
+  cbind(st_coordinates(.)) %>%
+  group_by(transect) %>%
+  arrange(Y) %>%
+  summarise(m = mean(station), do_union = FALSE) %>%
+  st_cast("LINESTRING")
+
+transect %>%
+  ggplot() +
+  geom_sf()
+
+r <- raster::raster(
+  "data/raw/bathymetry/GEBCO_2019_27_Apr_2020_5e98c581281a/gebco_2019_n75.0_s68.0_w-145.0_e-120.0.tif"
+)
+
+transect_bathy <- raster::extract(r, transect, along = TRUE, cellnumbers = TRUE)
+transect_bathy_df <- purrr::map_dfr(transect_bathy, as_tibble, .id = "ID") %>%
+  janitor::clean_names() %>%
+  rename("depth" = 3)
+
+transect_bathy_coords <- coordinates(r)[transect_bathy_df$cell, ] %>%
+  as_tibble() %>%
+  set_names(c("longitude", "latitude"))
+
+transect_bathy_df <- transect_bathy_df %>%
+  cbind(transect_bathy_coords) %>%
+  as_tibble()
+
+transect_bathy_df %>%
+  ggplot(aes(x = latitude, y = depth)) +
+  geom_path() +
+  facet_wrap(~id, scales = "free_x")
+
+# Extract bathymetry at station locations
+
+station_coordinates <- station %>%
+  filter(transect %in% c(600, 300)) %>%
+  filter(station != 345) %>%
+  st_as_sf(coords = c("longitude", "latitude"), crs = 4326)
+
+station_bathy <- raster::extract(r, station_coordinates, along = TRUE, cellnumbers = TRUE) %>%
+  as_tibble() %>%
+  rename("depth" = 2)
+
+station_bathy <- station_bathy %>%
+  cbind(station_coordinates) %>%
+  st_as_sf() %>%
+  cbind(st_coordinates(.)) %>%
+  rename(longitude = X, latitude = Y)
+
+station_bathy %>%
+  ggplot(aes(x = latitude, y = depth)) +
+  geom_point() +
+  facet_wrap(~transect)
+
+# Final bathymetry plot ---------------------------------------------------
+
+transect_bathy_df <- transect_bathy_df %>%
+  mutate(transect = ifelse(id == 1, 300, 600)) %>%
+  mutate(transect = factor(transect, levels = c("600", "300")))
+
+station_bathy <- station_bathy %>%
+  mutate(transect = factor(transect, levels = c("600", "300")))
+
+paletteer::paletteer_d("ggsci::default_nejm")
+
+p2 <- transect_bathy_df %>%
+  ggplot(aes(x = latitude, y = depth, color = transect)) +
+  geom_path() +
+  geom_point(data = station_bathy) +
+  ggrepel::geom_text_repel(
+    data = station_bathy,
+    aes(label = station),
+    size = 2,
+    segment.size = 0.25,
+    box.padding = unit(0.25, "lines"),
+    nudge_y = -100
+  ) +
+  scale_color_manual(
+    values = c(
+      "600" = "#6F99ADFF",
+      "300" = "#E18727FF"
+    )
+  ) +
+  scale_x_continuous(breaks = scales::breaks_pretty(n = 6)) +
+  labs(
+    x = "Latitude",
+    y = "Depth (m)"
+  ) +
+  theme(
+    legend.position = "none",
+    panel.border = element_blank(),
+    panel.grid.minor.x = element_blank(),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.y = element_blank(),
+    axis.ticks = element_blank()
+  )
+
+p <- p1 + p2 +
+  plot_layout(ncol = 1, heights = c(0.75, 0.25)) +
+  plot_annotation(tag_levels = "A")
 
 destfile <- "graphs/fig01.pdf"
 
