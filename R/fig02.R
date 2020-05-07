@@ -1,5 +1,8 @@
 rm(list = ls())
 
+
+# Water flow --------------------------------------------------------------
+
 # Discharge data
 # https://wateroffice.ec.gc.ca/search/historical_e.html
 # https://wateroffice.ec.gc.ca/report/historical_e.html?stn=10LC014&dataType=Daily&parameterType=Flow&year=2009&mode=Table&y1Max=1&y1Min=1
@@ -30,7 +33,7 @@ water_flow_malina <- water_flow %>%
 # lab <- water_flow_malina %>%
 #   filter(date == min(date) | date == max(date))
 
-p <- water_flow_2009 %>%
+p1 <- water_flow_2009 %>%
   ggplot(aes(x = date, y = value)) +
   geom_area(
     data = water_flow_1972_2016,
@@ -46,7 +49,9 @@ p <- water_flow_2009 %>%
     lineend = "round"
   ) +
   scale_x_date(
-    expand = expansion(mult = c(0.1, 0.1))
+    expand = expansion(mult = c(0.1, 0.1)),
+    date_breaks = "2 months",
+    date_labels = "%b %Y"
   ) +
   scale_y_continuous(
     breaks = scales::breaks_pretty(n = 6),
@@ -67,10 +72,57 @@ p <- water_flow_2009 %>%
     panel.grid.minor.x = element_blank()
   )
 
+
+# Air temperature ---------------------------------------------------------
+
+air_temperature <- vroom::vroom("data/raw/csv/procmet.csv") %>%
+  mutate(date = lubridate::make_datetime(year, month, day, hour, min, sec))
+
+air_temperature
+
+p2 <- air_temperature %>%
+  drop_na(t_hmp_avg) %>%
+  ggplot(aes(x = date, y = t_hmp_avg)) +
+  geom_line(size = 0.25) +
+  scale_x_datetime(
+    limits = lubridate::as_datetime(c("2009-07-30", "2009-08-25")),
+    date_breaks = "3 days",
+    date_labels = "%b %d"
+  ) +
+  geom_hline(yintercept = 0, color = "red", lty = 2, size = 0.25) +
+  labs(
+    x = NULL,
+    y = "Air temperature (°C)"
+  ) +
+  theme(
+    legend.key.size = unit(0.5, "cm"),
+    legend.position = "none",
+    panel.border = element_blank(),
+    axis.ticks = element_blank(),
+    panel.grid = element_line(size = 0.25),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank()
+  )
+
+# Combine plots -----------------------------------------------------------
+
+p <- p1 + p2 +
+  plot_layout(ncol = 1) +
+  plot_annotation(tag_levels = "A")
+
 ggsave(
   "graphs/fig02.pdf",
   device = cairo_pdf,
   width = 17.5,
-  height = 17.5 / 1.618, # Golden ratio
+  height = 17.5 / 1.25,
   units = "cm"
 )
+
+# Stats for the paper -----------------------------------------------------
+
+range(water_flow_1972_2016$mean_value)
+range(water_flow_malina$value)
+
+# When is the maximum discharge?
+water_flow_1972_2016 %>%
+  filter(mean_value == max(mean_value))
