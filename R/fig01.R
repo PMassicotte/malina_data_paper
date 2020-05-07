@@ -168,7 +168,7 @@ p1 <- ggplot() +
     label = "Beaufort Sea",
     family = "Poppins",
     size = 6,
-    fontface = 2
+    fontface = "plain"
   ) +
   ggspatial::annotation_scale(
     location = "br",
@@ -190,21 +190,6 @@ p1 <- ggplot() +
     panel.background = element_rect(fill = "#B9DDF1")
   ) +
   paletteer::scale_color_paletteer_d("ggsci::default_nejm")
-
-# p + facet_wrap(~date)
-# p + facet_wrap(~station)
-
-# destfile <- "graphs/fig01.pdf"
-#
-# ggsave(
-#   destfile,
-#   device = cairo_pdf,
-#   width = 17.5,
-#   height = 17.5,
-#   units = "cm"
-# )
-#
-# knitr::plot_crop(destfile)
 
 # Bathymetry profiles -----------------------------------------------------
 
@@ -229,7 +214,7 @@ r <- raster::raster(
 )
 
 transect_bathy <- raster::extract(r, transect, along = TRUE, cellnumbers = TRUE)
-transect_bathy_df <- purrr::map_dfr(transect_bathy, as_tibble, .id = "ID") %>%
+transect_bathy_df <- map_dfr(transect_bathy, as_tibble, .id = "ID") %>%
   janitor::clean_names() %>%
   rename("depth" = 3)
 
@@ -313,7 +298,8 @@ p2 <- transect_bathy_df %>%
 
 p <- p1 + p2 +
   plot_layout(ncol = 1, heights = c(0.75, 0.25)) +
-  plot_annotation(tag_levels = "A")
+  plot_annotation(tag_levels = "A") &
+  theme(plot.tag = element_text(face = "bold"))
 
 destfile <- "graphs/fig01.pdf"
 
@@ -326,5 +312,35 @@ ggsave(
 )
 
 knitr::plot_crop(destfile)
+
+# Stats for the paper -----------------------------------------------------
+
+# Depth at all stations
+
+r <- raster::raster(
+  "data/raw/bathymetry/GEBCO_2019_27_Apr_2020_5e98c581281a/gebco_2019_n75.0_s68.0_w-145.0_e-120.0.tif"
+)
+
+station_coordinates <- station %>%
+  # filter(transect %in% c(600, 300)) %>%
+  filter(station != 345) %>%
+  st_as_sf(coords = c("longitude", "latitude"), crs = 4326)
+
+station_bathy <- raster::extract(
+  r,
+  station_coordinates,
+  along = TRUE,
+  cellnumbers = TRUE
+) %>%
+  as_tibble() %>%
+  rename(depth = 2)
+
+station_bathy %>%
+  ggplot(aes(x = depth)) +
+  geom_histogram(binwidth = 25)
+
+range(station_bathy$depth)
+mean(station_bathy$depth)
+sd(station_bathy$depth)
 
 detach("package:raster", unload = TRUE)

@@ -76,19 +76,27 @@ p1 <- water_flow_2009 %>%
 # Air temperature ---------------------------------------------------------
 
 air_temperature <- vroom::vroom("data/raw/csv/procmet.csv") %>%
-  mutate(date = lubridate::make_datetime(year, month, day, hour, min, sec))
+  mutate(date = lubridate::make_datetime(year, month, day, hour, min, sec)) %>%
+  filter(between(date, "2009-07-30", "2009-08-25")) %>%
+  drop_na(t_hmp_avg)
 
 air_temperature
 
-p2 <- air_temperature %>%
-  drop_na(t_hmp_avg) %>%
-  ggplot(aes(x = date, y = t_hmp_avg)) +
-  geom_line(size = 0.25) +
+# Hourly average
+air_temperature_average <- air_temperature %>%
+  mutate(date_hour = lubridate::floor_date(date, unit = "hour")) %>%
+  group_by(date_hour) %>%
+  summarise(mean_t_hmp_avg = mean(t_hmp_avg, na.rm = TRUE))
+
+
+p2 <- air_temperature_average %>%
+  ggplot(aes(x = date_hour, y = mean_t_hmp_avg)) +
+  geom_line(size = 0.3, color = "#3c3c3c") +
   scale_x_datetime(
-    limits = lubridate::as_datetime(c("2009-07-30", "2009-08-25")),
     date_breaks = "3 days",
     date_labels = "%b %d"
   ) +
+  scale_y_continuous(breaks = scales::breaks_pretty(n = 6)) +
   geom_hline(yintercept = 0, color = "red", lty = 2, size = 0.25) +
   labs(
     x = NULL,
@@ -108,7 +116,8 @@ p2 <- air_temperature %>%
 
 p <- p1 + p2 +
   plot_layout(ncol = 1) +
-  plot_annotation(tag_levels = "A")
+  plot_annotation(tag_levels = "A") &
+  theme(plot.tag = element_text(face = "bold"))
 
 ggsave(
   "graphs/fig02.pdf",

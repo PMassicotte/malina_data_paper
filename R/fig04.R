@@ -231,7 +231,8 @@ p2 <- res %>%
 
 p <- p1 + p2 +
   plot_layout(ncol = 1) +
-  plot_annotation(tag_levels = "A")
+  plot_annotation(tag_levels = "A") &
+  theme(plot.tag = element_text(face = "bold"))
 
 ggsave("graphs/fig04.pdf",
   device = cairo_pdf,
