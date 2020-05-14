@@ -88,6 +88,9 @@ air_temperature_average <- air_temperature %>%
   group_by(date_hour) %>%
   summarise(mean_t_hmp_avg = mean(t_hmp_avg, na.rm = TRUE))
 
+range(air_temperature_average$mean_t_hmp_avg)
+mean(air_temperature_average$mean_t_hmp_avg)
+sd(air_temperature_average$mean_t_hmp_avg)
 
 p2 <- air_temperature_average %>%
   ggplot(aes(x = date_hour, y = mean_t_hmp_avg)) +

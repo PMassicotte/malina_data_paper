@@ -13,6 +13,10 @@ df %>%
 df <- df %>%
   filter(depth == 0)
 
+# Type:
+# n = niskin
+# z = zodiacc
+# g = barge
 df %>%
   filter(wav <= 500) %>%
   ggplot(aes(x = wav, y = absorption, group = filename)) +
@@ -26,6 +30,8 @@ dup <- df %>%
   count(station_cast, depth, sort = TRUE) %>%
   filter(n > 1) %>%
   pull(station_cast)
+
+dup
 
 df %>%
   filter(station_cast %in% dup) %>%
@@ -59,14 +65,64 @@ cdom %>%
 cdom <- cdom %>%
   inner_join(stations, by = "station")
 
-# Plot --------------------------------------------------------------------
-
-set.seed(1234)
-
 lab <- c(
   "600" = "Transect 600",
   "300" = "Transect 300"
 )
+
+# Plot aCDOM --------------------------------------------------------------
+
+df_viz <- cdom %>%
+  filter(between(wav, 254, 600)) %>%
+  filter(station %in% c(697, 620, 398, 320))
+
+df_station <- df_viz %>%
+  group_by(station) %>%
+  filter(wav == min(wav)) %>%
+  ungroup()
+
+p1 <- df_viz %>%
+  ggplot(aes(x = wav, y = absorption, group = station)) +
+  geom_line() +
+  facet_wrap(~transect, ncol = 1, labeller = labeller(transect = lab)) +
+  geom_text(
+    data = df_station,
+    aes(label = station),
+    size = 2.5,
+    hjust = 1.25,
+    color =
+      "gray50"
+  ) +
+  scale_x_continuous(
+    expand = expansion(mult = c(0.12, 0.05)),
+    breaks = seq(250, 600, by = 50)
+  ) +
+  # coord_cartesian(xlim = c(250, 600), expand = TRUE) +
+  scale_y_continuous(
+    expand = expansion(mult = c(0.01, 0.12)),
+    breaks = scales::breaks_pretty(n = 4)
+  ) +
+  labs(
+    x = "Wavelength (nm)",
+    y = bquote(italic(a)["CDOM"]~(m^{-1}))
+  ) +
+  theme(
+    strip.background = element_blank(),
+    strip.text = element_text(hjust = 0, size = 14, face = "bold"),
+    panel.border = element_blank(),
+    axis.ticks = element_blank()
+  )
+
+# How many times higher the absorption is higher between north and south
+# stations? Approximately 15 times higher.
+df_viz %>%
+  filter(wav == 254) %>%
+  group_by(transect) %>%
+  summarise(difference = max(absorption) / min(absorption))
+
+# Plot SUVA ---------------------------------------------------------------
+
+set.seed(1234)
 
 # SUVA254
 
@@ -81,7 +137,7 @@ doc <- read_csv("data/raw/csv/doc.csv") %>%
 
 doc
 
-p <- cdom %>%
+p2 <- cdom %>%
   filter(wav == 254) %>%
   inner_join(doc) %>%
   mutate(suva254 = absorption / doc_mg) %>%
@@ -95,6 +151,7 @@ p <- cdom %>%
   box.padding = unit(0.25, "lines")
 ) +
   scale_x_continuous(breaks = scales::breaks_pretty(n = 6)) +
+  scale_y_continuous(breaks = scales::breaks_pretty(n = 4)) +
   labs(
     x = "Latitude",
     y = bquote(SUVA[254]~(L~m^{-1}~mgC^{-1}))
@@ -106,10 +163,17 @@ p <- cdom %>%
     axis.ticks = element_blank()
   )
 
+# Combine plots -----------------------------------------------------------
+
+p <- p1 + p2 +
+  plot_layout(ncol = 2) +
+  plot_annotation(tag_levels = "A") &
+  theme(plot.tag = element_text(face = "bold"))
+
 ggsave(
   "graphs/fig06.pdf",
   device = cairo_pdf,
-  width = 17.5 / 2,
+  width = 17.5,
   height = 15 / 2,
   units = "cm"
 )

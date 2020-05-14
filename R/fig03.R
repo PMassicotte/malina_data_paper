@@ -103,7 +103,7 @@ p <- res %>%
   )) %>%
   ggplot(aes(x = x, y = y, z = z, fill = z)) +
   geom_raster() +
-  geom_isobands(color = "#3c3c3c", size = 0.1, breaks = seq(-10, 110, by = 5)) +
+  geom_isobands(color = NA, breaks = seq(-10, 110, by = 5)) +
   geom_text(
     data = station_labels,
     aes(x = latitude, y = 0, label = station),
