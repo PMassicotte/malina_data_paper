@@ -151,7 +151,7 @@ p <- res %>%
     panel.grid = element_blank(),
     strip.background = element_blank(),
     strip.text.x = element_text(hjust = 0, size = 14, face = "bold"),
-    strip.text.y = element_text(hjust = 0.5, size = 8),
+    strip.text.y = element_text(hjust = 0.5, size = 6),
     panel.border = element_blank(),
     axis.ticks = element_blank(),
     legend.position = "bottom"
