@@ -1,116 +1,78 @@
-rm(list = ls())
+df <- read_excel(
+  "data/raw/Malina_data_compilation-Xie_DIC & CO photoproduction rate.xlsx",
+  skip = 4,
+  col_names = c(
+    "station",
+    "depth",
+    "cutoff_wavelength_50_percent",
+    "co2_production_moles_m3_s1",
+    "co_production_moles_m3_s1"
+  ),
+  na = c("no data", "", " ")
+)
 
-source("R/interpolate_fun.R")
-
-df <- read_csv("data/raw/csv/bacterial.csv") %>%
+df_viz <- df %>%
+  filter(depth == "surface") %>%
   mutate(transect = station %/% 100 * 100) %>%
   filter(transect %in% c(300, 600)) %>%
-  filter(depth <= 100) %>%
+  filter(cutoff_wavelength_50_percent %in% c(280, 295)) %>%
   mutate(transect = factor(transect, levels = c("600", "300")))
 
-df
+df_viz
 
-df %>%
-  ggplot(aes(x = latitude, y = depth)) +
-  geom_point() +
-  facet_wrap(~transect, scales = "free_x") +
-  scale_y_reverse()
-
-# Interpolation -----------------------------------------------------------
-
-res <- df %>%
-  group_nest(transect) %>%
-  mutate(interpolated_bp = map(
-    data,
-    interpolate_2d,
-    x = latitude,
-    y = depth,
-    z = bp_pmol_leu_l_1_h_1,
-    n = 1,
-    m = 1,
-    h = 5
-  ))
-
-# Plot --------------------------------------------------------------------
-
-station_labels <- res %>%
-  unnest(data) %>%
-  group_by(transect) %>%
-  ungroup() %>%
-  distinct(station, .keep_all = TRUE) %>%
-  select(station, transect, latitude)
+mylabel <- c(
+  "280" = "280 nm",
+  "295" = "295 nm"
+)
 
 lab <- c(
   "600" = "Transect 600",
   "300" = "Transect 300"
 )
 
-p <- res %>%
-  unnest(interpolated_bp) %>%
-  select(-data) %>%
-  drop_na(z) %>%
-  mutate(z = ifelse(z < 0, 0, z)) %>%
-  ggplot(aes(
-    x = x,
-    y = y,
-    z = z,
-    fill = z
-  )) +
-  geom_isobands(color = NA, breaks = seq(0, 200, by = 5)) +
-  geom_text(
-    data = station_labels,
-    aes(x = latitude, y = 0, label = station),
-    inherit.aes = FALSE,
-    size = 1.5,
-    angle = 45,
-    hjust = -0.1,
-    color = "gray50"
+p <- df_viz %>%
+  pivot_longer(starts_with("co"), names_to = "type", values_to = "flux") %>%
+  ggplot(aes(x = flux * 1e6, y = factor(station), fill = type)) +
+  geom_col() +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.05))) +
+  scale_y_discrete(expand = expansion(mult = c(0, 0))) +
+  facet_grid(
+    transect ~ cutoff_wavelength_50_percent,
+    scales = "free_y",
+    labeller = labeller(cutoff_wavelength_50_percent = mylabel, transect = lab)
   ) +
-  geom_point(
-    data = unnest(res, data),
-    aes(x = latitude, y = depth),
-    size = 0.05,
-    color = "gray50",
-    inherit.aes = FALSE
-  ) +
-  facet_wrap(~transect, scales = "free_x", labeller = labeller(transect = lab)) +
-  scale_y_reverse(expand = expansion(mult = c(0.01, 0.15))) +
-  scale_x_continuous(
-    expand = expansion(mult = c(0.01, 0.05)),
-    breaks = scales::breaks_pretty(n = 4)
-  ) +
-  paletteer::scale_fill_paletteer_c(
-    "oompaBase::jetColors",
-    # trans = "sqrt",
-    breaks = scales::breaks_pretty(n = 6),
-    guide =
-      guide_colorbar(
-        barwidth = unit(8, "cm"),
-        barheight = unit(0.2, "cm"),
-        direction = "horizontal",
-        title.position = "top",
-        title.hjust = 0.5
-      )
+  scale_fill_manual(
+    guide = guide_legend(
+      label.position = "top",
+      label.theme = element_text(face = "bold", family = "Poppins", size = 8),
+      keywidth = unit(4, "cm"),
+      keyheight = unit(0.2, "cm")
+    ),
+    breaks = c("co2_production_moles_m3_s1", "co_production_moles_m3_s1"),
+    labels = c(bquote("Carbon dioxide"~(CO[2])), bquote("Carbon monoxide"~(CO))),
+    values = c("#A3BE8CFF", "#BF616AFF")
   ) +
   labs(
-    x = "Latitude",
-    y = "Depth (m)",
-    fill = bquote("Bacterial production"~(pmol~leu~l^{-1}~h^{-1}))
+    x = bquote("Production rate"~("µmol"~m^{-3}~s^{-1})),
+    y = "Station number"
   ) +
   theme(
-    panel.grid = element_blank(),
+    plot.caption = element_text(size = 4),
+    legend.key.size = unit(0.5, "cm"),
+    legend.position = "bottom",
+    legend.title = element_blank(),
     strip.background = element_blank(),
     strip.text = element_text(hjust = 0, size = 14, face = "bold"),
     panel.border = element_blank(),
     axis.ticks = element_blank(),
-    legend.position = "bottom"
+    panel.spacing.y = unit(2, "lines")
   )
 
-# Save --------------------------------------------------------------------
+paletteer::paletteer_d("nord::aurora")
 
 ggsave("graphs/fig11.pdf",
   device = cairo_pdf,
-  width = 17.5,
-  height = 7,
+  width = 17.5 / 1.5,
+  height = 12,
   units = "cm"
 )

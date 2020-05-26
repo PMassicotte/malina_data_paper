@@ -240,3 +240,8 @@ ggsave("graphs/fig04.pdf",
   height = 14,
   units = "cm"
 )
+
+# Stats for the paper -----------------------------------------------------
+
+range(df$pres)
+range(df$temp)
