@@ -2,7 +2,60 @@ rm(list = ls())
 
 source("R/interpolate_fun.R")
 
-df <- read_csv("data/raw/csv/bacterial.csv") %>%
+
+# Read all the data -------------------------------------------------------
+
+file <- "data/raw/BacterialProduction_Malina_30151_2479.xls"
+
+df1 <- read_excel(file, sheet = 2) %>%
+  janitor::clean_names() %>%
+  select(
+    latitude = lat,
+    longitude = lon,
+    station,
+    depth,
+    bp_pmol_leu_l_1_h_1
+  ) %>%
+  filter(station != 394) # This station is included in the zodiac data
+
+df2 <- read_excel(file, sheet = 4) %>%
+  janitor::clean_names() %>%
+  select(
+    latitude = lat,
+    longitude = lon,
+    station,
+    bp_pmol_leu_l_1_h_1
+  ) %>%
+  mutate(depth = 0)
+
+df <- bind_rows(df1, df2)
+
+# Merge coordinates -------------------------------------------------------
+
+df <- df %>%
+  group_by(station) %>%
+  mutate(across(c(latitude, longitude), mean)) %>%
+  ungroup()
+
+# Convert pmol to ug ------------------------------------------------------
+
+# x = pmol leu l-1 h-1
+# 1e-12 = convertir en pmole en mole
+# 1.5 = kg C par mole
+# 1e9 = kg vers ug
+# 1e3 = l-1 en m-3
+# 24 = pour passer de h-1 en d-1
+
+df <- df %>%
+  mutate(bp_ug_c_m_3_d_1 = bp_pmol_leu_l_1_h_1 * 1e-12 * 1.5 * 1e9 * 1e3 * 24)
+
+df %>%
+  ggplot(aes(x = bp_ug_c_m_3_d_1)) +
+  geom_histogram(binwidth = 100)
+
+# Filter out the data for the graph ---------------------------------------
+
+df <- df %>%
   mutate(transect = station %/% 100 * 100) %>%
   filter(transect %in% c(300, 600)) %>%
   filter(depth <= 100) %>%
@@ -14,7 +67,8 @@ df %>%
   ggplot(aes(x = latitude, y = depth)) +
   geom_point() +
   facet_wrap(~transect, scales = "free_x") +
-  scale_y_reverse()
+  scale_y_reverse() +
+  ggrepel::geom_text_repel(aes(label = station))
 
 # Interpolation -----------------------------------------------------------
 
@@ -25,7 +79,7 @@ res <- df %>%
     interpolate_2d,
     x = latitude,
     y = depth,
-    z = bp_pmol_leu_l_1_h_1,
+    z = bp_ug_c_m_3_d_1,
     n = 1,
     m = 1,
     h = 5
@@ -45,7 +99,8 @@ lab <- c(
   "300" = "Transect 300"
 )
 
-p <- res %>%
+p <-
+  res %>%
   unnest(interpolated_bp) %>%
   select(-data) %>%
   drop_na(z) %>%
@@ -56,7 +111,7 @@ p <- res %>%
     z = z,
     fill = z
   )) +
-  geom_isobands(color = NA, breaks = seq(0, 200, by = 5)) +
+  geom_isobands(color = NA, breaks = seq(0, 10000, by = 200)) +
   geom_text(
     data = station_labels,
     aes(x = latitude, y = 0, label = station),
@@ -82,7 +137,7 @@ p <- res %>%
   paletteer::scale_fill_paletteer_c(
     "oompaBase::jetColors",
     # trans = "sqrt",
-    breaks = scales::breaks_pretty(n = 6),
+    breaks = scales::breaks_pretty(n = 8),
     guide =
       guide_colorbar(
         barwidth = unit(8, "cm"),
@@ -95,7 +150,7 @@ p <- res %>%
   labs(
     x = "Latitude",
     y = "Depth (m)",
-    fill = bquote("Bacterial production"~(pmol~leu~l^{-1}~h^{-1}))
+    fill = bquote("Bacterial production"~(mu*gC~m^{-3}~d^{-1}))
   ) +
   theme(
     panel.grid = element_blank(),
