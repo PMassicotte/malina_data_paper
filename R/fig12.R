@@ -1,7 +1,9 @@
+# Figure of bacterial production. Note that there are also data for bacterial
+# respiration, but only like 10 observations. I will not make a figure for BR.
+
 rm(list = ls())
 
 source("R/interpolate_fun.R")
-
 
 # Read all the data -------------------------------------------------------
 
