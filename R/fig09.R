@@ -78,7 +78,7 @@ lab <- c(
   "300" = "Transect 300"
 )
 
-p <- res %>%
+p1 <- res %>%
   unnest(interpolated_bacteria_cell_m_l) %>%
   select(-data) %>%
   drop_na(z) %>%
@@ -139,11 +139,80 @@ p <- res %>%
     legend.position = "bottom"
   )
 
+# Bacterial diversity -----------------------------------------------------
+
+col_names <-
+  read_excel(
+    "data/raw/new_data/Fig454_Malina.xlsx",
+    .name_repair = "minimal",
+    n_max = 1
+  ) %>%
+  paste(., names(.)) %>%
+  str_squish() %>%
+  str_to_lower()
+
+df <- read_excel(
+  "data/raw/new_data/Fig454_Malina.xlsx",
+  skip = 2,
+  col_names = col_names,
+  n_max = 12
+) %>%
+  pivot_longer(-class, names_to = "tmp", values_to = "relative_contribution") %>%
+  mutate(relative_contribution = relative_contribution / 100) %>%
+  extract(
+    tmp,
+    into = c("location", "type", "station"),
+    regex = "(\\S+)\\_(\\S+)\\W+(\\d{3})",
+    remove = FALSE,
+    convert = TRUE
+  )
+
+df
+
+lab <- c(
+  "fl" = "Free-living bacteria",
+  "pa" = "Particle-attached bacteria"
+)
+
+p2 <- df %>%
+  mutate(class = fct_relevel(class, "Other", after = Inf)) %>%
+  mutate(location = str_to_title(location)) %>%
+  mutate(location2 = glue("{location} ({station})")) %>%
+  mutate(location2 = factor(location2, levels = c("River (697)", "Coast (694)", "Sea (620)"))) %>%
+  ggplot(aes(x = location2, y = relative_contribution, fill = class)) +
+  geom_col() +
+  facet_wrap(~type, labeller = labeller(type = lab)) +
+  scale_y_continuous(labels = scales::label_percent(), expand = c(0, 0)) +
+  scale_x_discrete(expand = c(0, 0)) +
+  paletteer::scale_fill_paletteer_d(
+    "ggsci::default_igv",
+    guide = guide_legend()
+  ) +
+  labs(
+    x = NULL,
+    y = "Relative abundance"
+  ) +
+  theme(
+    panel.grid = element_blank(),
+    strip.background = element_blank(),
+    strip.text = element_text(hjust = 0.5, size = 14, face = "bold"),
+    panel.border = element_blank(),
+    axis.ticks = element_blank(),
+    legend.title = element_blank(),
+    panel.spacing = unit(2, "lines"),
+    legend.position = "bottom"
+  )
+
 # Save --------------------------------------------------------------------
+
+p <- p1 + p2 +
+  plot_layout(nrow = 2, heights = c(0.25, 0.55)) +
+  plot_annotation(tag_levels = "A") &
+  theme(plot.tag = element_text(face = "bold"))
 
 ggsave("graphs/fig09.pdf",
   device = cairo_pdf,
   width = 17.5,
-  height = 7,
+  height = 20,
   units = "cm"
 )
