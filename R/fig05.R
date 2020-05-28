@@ -171,7 +171,7 @@ p1 <- res %>%
   theme(
     panel.grid = element_blank(),
     strip.background = element_blank(),
-    strip.text = element_text(hjust = 0, size = 14, face = "bold"),
+    strip.text = element_text(hjust = 0, size = 10, face = "bold"),
     panel.border = element_blank(),
     axis.ticks = element_blank(),
     axis.title.x = element_blank(),
@@ -234,7 +234,7 @@ p2 <- res %>%
   theme(
     panel.grid = element_blank(),
     strip.background = element_blank(),
-    strip.text = element_text(hjust = 0, size = 14, face = "bold"),
+    strip.text = element_text(hjust = 0, size = 10, face = "bold"),
     panel.border = element_blank(),
     axis.ticks = element_blank(),
     legend.position = "bottom"
@@ -295,7 +295,7 @@ p3 <- res %>%
   theme(
     panel.grid = element_blank(),
     strip.background = element_blank(),
-    strip.text = element_text(hjust = 0, size = 14, face = "bold"),
+    strip.text = element_text(hjust = 0, size = 10, face = "bold"),
     panel.border = element_blank(),
     axis.ticks = element_blank(),
     legend.position = "bottom"

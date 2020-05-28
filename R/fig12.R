@@ -140,6 +140,7 @@ p <-
     "oompaBase::jetColors",
     # trans = "sqrt",
     breaks = scales::breaks_pretty(n = 8),
+    labels = scales::label_number(),
     guide =
       guide_colorbar(
         barwidth = unit(8, "cm"),
@@ -152,12 +153,12 @@ p <-
   labs(
     x = "Latitude",
     y = "Depth (m)",
-    fill = bquote("Bacterial production"~(mu*gC~m^{-3}~d^{-1}))
+    fill = bquote("Bacterial production"~("µgC m"^{-3}~d^{-1}))
   ) +
   theme(
     panel.grid = element_blank(),
     strip.background = element_blank(),
-    strip.text = element_text(hjust = 0, size = 14, face = "bold"),
+    strip.text = element_text(hjust = 0, size = 10, face = "bold"),
     panel.border = element_blank(),
     axis.ticks = element_blank(),
     legend.position = "bottom"

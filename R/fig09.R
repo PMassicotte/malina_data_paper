@@ -29,7 +29,7 @@ stations <- read_csv("data/clean/stations.csv") %>%
 anti_join(df, stations)
 
 cyto <- inner_join(df, stations) %>%
-  filter(transect %in% c(300, 600))
+  filter(transect %in% c(600))
 
 # We have 1 "duplicate". I will average the data.
 cyto %>%
@@ -114,7 +114,7 @@ p1 <- res %>%
   ) +
   paletteer::scale_fill_paletteer_c(
     "oompaBase::jetColors",
-    breaks = scales::breaks_pretty(n = 6),
+    breaks = scales::breaks_width(width = 3e5),
     labels = scales::label_scientific(),
     guide =
       guide_colorbar(
@@ -128,15 +128,16 @@ p1 <- res %>%
   labs(
     x = "Latitude",
     y = "Depth (m)",
-    fill = bquote(Bacteria~(cells~mL^{-1}))
+    fill = bquote("Bacteria"~("cells"~"mL"^{-1}))
   ) +
   theme(
     panel.grid = element_blank(),
     strip.background = element_blank(),
-    strip.text = element_text(hjust = 0, size = 14, face = "bold"),
+    strip.text = element_text(hjust = 0, size = 10, face = "bold"),
     panel.border = element_blank(),
     axis.ticks = element_blank(),
-    legend.position = "bottom"
+    legend.position = "bottom",
+    legend.margin = margin(r = 2)
   )
 
 # Bacterial diversity -----------------------------------------------------
@@ -181,12 +182,12 @@ p2 <- df %>%
   mutate(location2 = factor(location2, levels = c("River (697)", "Coast (694)", "Sea (620)"))) %>%
   ggplot(aes(x = location2, y = relative_contribution, fill = class)) +
   geom_col() +
-  facet_wrap(~type, labeller = labeller(type = lab)) +
+  facet_wrap(~type, labeller = labeller(type = lab), ncol = 1) +
   scale_y_continuous(labels = scales::label_percent(), expand = c(0, 0)) +
   scale_x_discrete(expand = c(0, 0)) +
   paletteer::scale_fill_paletteer_d(
     "ggsci::default_igv",
-    guide = guide_legend()
+    guide = guide_legend(ncol = 3)
   ) +
   labs(
     x = NULL,
@@ -195,24 +196,26 @@ p2 <- df %>%
   theme(
     panel.grid = element_blank(),
     strip.background = element_blank(),
-    strip.text = element_text(hjust = 0.5, size = 14, face = "bold"),
+    strip.text = element_text(hjust = 0, size = 10, face = "bold"),
     panel.border = element_blank(),
     axis.ticks = element_blank(),
     legend.title = element_blank(),
-    panel.spacing = unit(2, "lines"),
-    legend.position = "bottom"
+    legend.text = element_text(size = 6),
+    legend.key.size = unit(3, "mm"),
+    legend.position = "bottom",
+    legend.margin = margin(r = 4)
   )
 
 # Save --------------------------------------------------------------------
 
 p <- p1 + p2 +
-  plot_layout(nrow = 2, heights = c(0.25, 0.55)) +
+  plot_layout(nrow = 2, heights = c(0.2, 0.55)) +
   plot_annotation(tag_levels = "A") &
   theme(plot.tag = element_text(face = "bold"))
 
 ggsave("graphs/fig09.pdf",
   device = cairo_pdf,
-  width = 17.5,
-  height = 20,
+  width = 10,
+  height = 18,
   units = "cm"
 )
