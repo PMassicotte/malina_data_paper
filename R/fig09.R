@@ -114,8 +114,8 @@ p1 <- res %>%
   ) +
   paletteer::scale_fill_paletteer_c(
     "oompaBase::jetColors",
-    breaks = scales::breaks_pretty(n = 5),
-    labels = scales::label_number_si(accuracy = 0.1),
+    breaks = scales::breaks_pretty(n = 6),
+    labels = scales::label_scientific(),
     guide =
       guide_colorbar(
         barwidth = unit(8, "cm"),
