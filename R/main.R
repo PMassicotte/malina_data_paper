@@ -1,10 +1,10 @@
-#<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+# <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 # FILE:         main.R
 #
 # AUTHOR:       Philippe Massicotte
 #
 # DESCRIPTION:  Load packages and setup for the project.
-#<><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+# <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 
 # Setup -------------------------------------------------------------------
 
@@ -19,7 +19,7 @@ library(data.table)
 library(assertr)
 library(sf)
 library(MBA)
-library(ggisoband) #devtools::install_github("clauswilke/ggisoband")
+library(ggisoband) # devtools::install_github("clauswilke/ggisoband")
 library(patchwork)
 library(readxl)
 
@@ -51,4 +51,3 @@ source("R/fig08.R")
 source("R/fig09.R")
 source("R/fig10.R")
 source("R/fig11.R")
-source("R/fig12.R")

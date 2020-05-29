@@ -154,7 +154,9 @@ p <- res %>%
     strip.text.y = element_text(hjust = 0.5, size = 6),
     panel.border = element_blank(),
     axis.ticks = element_blank(),
-    legend.position = "bottom"
+    legend.position = "bottom",
+    legend.text = element_text(size = 6),
+    legend.title = element_text(size = 8)
   )
 
 ggsave(

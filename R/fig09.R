@@ -149,7 +149,9 @@ p <- res %>%
     strip.text = element_text(hjust = 0, size = 10, face = "bold"),
     panel.border = element_blank(),
     axis.ticks = element_blank(),
-    legend.position = "bottom"
+    legend.position = "bottom",
+    legend.text = element_text(size = 6),
+    legend.title = element_text(size = 8)
   )
 
 # Save --------------------------------------------------------------------
