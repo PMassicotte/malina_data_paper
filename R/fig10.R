@@ -1,162 +1,150 @@
-# Figure on primary production
+# Figure on DOM oxydation
 
 rm(list = ls())
 
-source("R/interpolate_fun.R")
+# Photo-oxydation ---------------------------------------------------------
 
-# read_csv(
-#   "data/raw/database 17nov2010__DATA.csv",
-#   skip = 3,
-#   col_names = c(
-#     "cast",
-#     "bottle",
-#     "latitude",
-#     "longitude",
-#     "depth"
-#   )
-# )
-
-pp <- data.table::fread("data/raw/database 17nov2010__DATA.csv",
-  skip = 3,
-  select = c(1, 2, 5, 20), col.names = c(
-    "cast",
-    "bottle",
+df <- read_excel(
+  "data/raw/Malina_data_compilation-Xie_DIC & CO photoproduction rate.xlsx",
+  skip = 4,
+  col_names = c(
+    "station",
     "depth",
-    "primary_production_mgc_m3_24h"
-  )
-) %>%
-  as_tibble() %>%
-  drop_na(primary_production_mgc_m3_24h) %>%
-  filter(depth <= 100)
+    "cutoff_wavelength_50_percent",
+    "co2_production_moles_m3_s1",
+    "co_production_moles_m3_s1"
+  ),
+  na = c("no data", "", " ")
+)
 
-pp
-
-stations <- read_csv("data/clean/stations.csv") %>%
-  distinct(station, cast, transect, .keep_all = TRUE) %>%
-  filter(station != 345)
-
-df <- inner_join(stations, pp, by = "cast") %>%
-  filter(transect %in% c(600, 300)) %>%
+df_viz <- df %>%
+  filter(depth == "surface") %>%
+  mutate(transect = station %/% 100 * 100) %>%
+  filter(transect %in% c(300, 600)) %>%
+  filter(cutoff_wavelength_50_percent %in% c(280, 295)) %>%
   mutate(transect = factor(transect, levels = c("600", "300")))
 
-df %>%
-  count(station, depth, sort = TRUE)
+df_viz
 
-df %>%
-  ggplot(aes(x = latitude, y = depth)) +
-  geom_point() +
-  scale_y_reverse() +
-  facet_wrap(~transect, scales = "free_x") +
-  ggrepel::geom_text_repel(aes(label = station))
-
-# Average by station, depth
-
-df <- df %>%
-  # select(-date) %>%
-  group_by(station, transect, depth) %>%
-  summarise(across(everything(), mean), n = n()) %>%
-  ungroup()
-
-df %>%
-  ggplot(aes(x = latitude, y = depth)) +
-  geom_point() +
-  scale_y_reverse() +
-  facet_wrap(~transect, scales = "free_x") +
-  ggrepel::geom_text_repel(aes(label = station))
-
-# Interpolation -----------------------------------------------------------
-
-res <- df %>%
-  filter(primary_production_mgc_m3_24h <= 25) %>%
-  group_nest(transect) %>%
-  mutate(interpolated_pp = map(
-    data,
-    interpolate_2d,
-    x = latitude,
-    y = depth,
-    z = primary_production_mgc_m3_24h
-  ))
-
-# Plot --------------------------------------------------------------------
-
-station_labels <- res %>%
-  unnest(data) %>%
-  group_by(transect) %>%
-  ungroup() %>%
-  distinct(station, .keep_all = TRUE) %>%
-  select(station, transect, latitude)
+mylabel <- c(
+  "280" = "280 nm",
+  "295" = "295 nm"
+)
 
 lab <- c(
   "600" = "Transect 600",
   "300" = "Transect 300"
 )
 
-p <- res %>%
-  unnest(interpolated_pp) %>%
-  select(-data) %>%
-  drop_na(z) %>%
-  mutate(z = ifelse(z < 0, 0, z)) %>%
-  ggplot(aes(
-    x = x,
-    y = y,
-    z = z,
-    fill = z
-  )) +
-  geom_isobands(color = NA, breaks = seq(0, 200, by = 0.1)) +
-  geom_text(
-    data = station_labels,
-    aes(x = latitude, y = 0, label = station),
-    inherit.aes = FALSE,
-    size = 1.5,
-    angle = 45,
-    hjust = -0.1,
-    color = "gray50"
+p1 <- df_viz %>%
+  pivot_longer(starts_with("co"), names_to = "type", values_to = "flux") %>%
+  mutate(station = fct_reorder(as.character(station), station, .desc = TRUE)) %>%
+  ggplot(aes(x = flux * 1e6, y = station, fill = type)) +
+  geom_col() +
+  scale_x_continuous(expand = expansion(mult = c(0, 0.05))) +
+  scale_y_discrete(expand = expansion(mult = c(0, 0))) +
+  facet_grid(
+    transect ~ cutoff_wavelength_50_percent,
+    scales = "free_y",
+    labeller = labeller(cutoff_wavelength_50_percent = mylabel, transect = lab)
   ) +
-  geom_point(
-    data = unnest(res, data),
-    aes(x = latitude, y = depth),
-    size = 0.05,
-    color = "gray50",
-    inherit.aes = FALSE
-  ) +
-  facet_wrap(~transect, scales = "free_x", labeller = labeller(transect = lab)) +
-  scale_y_reverse(expand = expansion(mult = c(0.01, 0.15))) +
-  scale_x_continuous(
-    expand = expansion(mult = c(0.01, 0.05)),
-    breaks = scales::breaks_pretty(n = 4)
-  ) +
-  paletteer::scale_fill_paletteer_c(
-    "oompaBase::jetColors",
-    trans = "sqrt",
-    breaks = scales::breaks_pretty(n = 6),
-    guide =
-      guide_colorbar(
-        barwidth = unit(8, "cm"),
-        barheight = unit(0.2, "cm"),
-        direction = "horizontal",
-        title.position = "top",
-        title.hjust = 0.5
-      )
+  scale_fill_manual(
+    guide = guide_legend(
+      label.position = "top",
+      label.theme = element_text(face = "bold", family = "Poppins", size = 8),
+      keywidth = unit(4, "cm"),
+      keyheight = unit(0.2, "cm")
+    ),
+    breaks = c("co2_production_moles_m3_s1", "co_production_moles_m3_s1"),
+    labels = c(bquote("Carbon dioxide"~(CO[2])), bquote("Carbon monoxide"~(CO))),
+    values = c("#A3BE8CFF", "#BF616AFF")
   ) +
   labs(
-    x = "Latitude",
-    y = "Depth (m)",
-    fill = bquote(Primary~production~(mgC~m^{-3}~24*h^{-1}))
+    x = bquote("Production rate"~("µmol"~m^{-3}~s^{-1})),
+    y = "Station"
   ) +
   theme(
-    panel.grid = element_blank(),
+    plot.caption = element_text(size = 4),
+    legend.key.size = unit(0.5, "cm"),
+    legend.position = "bottom",
+    legend.title = element_blank(),
+    strip.background = element_blank(),
+    strip.text.x = element_text(hjust = 0, size = 10, face = "bold"),
+    strip.text.y = element_text(hjust = 0, size = 8, face = "bold"),
+    panel.border = element_blank(),
+    axis.ticks = element_blank(),
+    panel.spacing.y = unit(2, "lines")
+  )
+
+paletteer::paletteer_d("nord::aurora")
+
+# Autoxidation ------------------------------------------------------------
+
+
+autoxidation <- read_excel("data/raw/new_data/Données autoxydation.xlsx") %>%
+  janitor::clean_names() %>%
+  janitor::remove_empty() %>%
+  filter(!str_detect(station, fixed("station", ignore_case = TRUE))) %>%
+  type_convert() %>%
+  pivot_longer(-station, names_to = "process", values_to = "percent") %>%
+  mutate(station = str_remove_all(station, "St ")) %>%
+  mutate(percent = percent / 100) %>%
+  mutate(process = str_replace_all(process, "_", " ")) %>%
+  mutate(process = str_remove_all(process, " percent")) %>%
+  mutate(process = str_to_sentence(process)) %>%
+  mutate(transect = rep(c("300", "600"), each = 14)) %>%
+  mutate(transect = factor(transect, levels = c("600", "300")))
+
+autoxidation
+
+autoxidation <- autoxidation %>%
+  mutate(station_index = parse_number(station)) %>%
+  mutate(station_index = ifelse(is.na(station_index), 999, station_index)) %>%
+  mutate(station = fct_reorder2(station, station_index, transect, max))
+
+autoxidation
+
+p2 <- autoxidation %>%
+  ggplot(aes(x = station, y = percent, fill = process)) +
+  geom_col(position = "dodge") +
+  facet_wrap(~transect, scales = "free_y", labeller = labeller(transect = lab)) +
+  labs(
+    x = "Station",
+    y = NULL
+  ) +
+  scale_y_continuous(labels = scales::label_percent(), limits = c(0, 1)) +
+  paletteer::scale_fill_paletteer_d("jcolors::pal5",
+    guide = guide_legend(
+      label.position = "top",
+      label.theme = element_text(family = "Poppins", size = 8),
+      keywidth = unit(4, "cm"),
+      keyheight = unit(0.2, "cm")
+    )
+  ) +
+  theme(
+    plot.caption = element_text(size = 4),
+    legend.key.size = unit(0.5, "cm"),
+    legend.position = "bottom",
+    legend.title = element_blank(),
     strip.background = element_blank(),
     strip.text = element_text(hjust = 0, size = 10, face = "bold"),
     panel.border = element_blank(),
     axis.ticks = element_blank(),
-    legend.position = "bottom"
-  )
+    panel.spacing.y = unit(2, "lines")
+  ) +
+  coord_flip()
+
 
 # Save --------------------------------------------------------------------
+
+p <- p1 + p2 +
+  plot_layout(ncol = 1, heights = c(0.5, 0.5)) +
+  plot_annotation(tag_levels = "A") &
+  theme(plot.tag = element_text(face = "bold"))
 
 ggsave("graphs/fig10.pdf",
   device = cairo_pdf,
   width = 17.5,
-  height = 7,
+  height = 18,
   units = "cm"
 )
