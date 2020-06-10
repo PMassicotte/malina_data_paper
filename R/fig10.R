@@ -22,14 +22,10 @@ df_viz <- df %>%
   mutate(transect = station %/% 100 * 100) %>%
   filter(transect %in% c(300, 600)) %>%
   filter(cutoff_wavelength_50_percent %in% c(280, 295)) %>%
-  mutate(transect = factor(transect, levels = c("600", "300")))
+  mutate(transect = factor(transect, levels = c("600", "300"))) %>%
+  filter(cutoff_wavelength_50_percent == 295)
 
 df_viz
-
-mylabel <- c(
-  "280" = "280 nm",
-  "295" = "295 nm"
-)
 
 lab <- c(
   "600" = "Transect 600",
@@ -43,10 +39,9 @@ p1 <- df_viz %>%
   geom_col() +
   scale_x_continuous(expand = expansion(mult = c(0, 0.05))) +
   scale_y_discrete(expand = expansion(mult = c(0, 0))) +
-  facet_grid(
-    transect ~ cutoff_wavelength_50_percent,
+  facet_wrap(~transect,
     scales = "free_y",
-    labeller = labeller(cutoff_wavelength_50_percent = mylabel, transect = lab)
+    labeller = labeller(transect = lab)
   ) +
   scale_fill_manual(
     guide = guide_legend(
@@ -70,7 +65,7 @@ p1 <- df_viz %>%
     legend.title = element_blank(),
     strip.background = element_blank(),
     strip.text.x = element_text(hjust = 0, size = 10, face = "bold"),
-    strip.text.y = element_text(hjust = 0, size = 8, face = "bold"),
+    strip.text.y = element_text(hjust = 0, size = 10, face = "bold"),
     panel.border = element_blank(),
     axis.ticks = element_blank(),
     panel.spacing.y = unit(2, "lines")
@@ -79,7 +74,6 @@ p1 <- df_viz %>%
 paletteer::paletteer_d("nord::aurora")
 
 # Autoxidation ------------------------------------------------------------
-
 
 autoxidation <- read_excel("data/raw/new_data/Données autoxydation.xlsx") %>%
   janitor::clean_names() %>%
