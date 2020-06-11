@@ -4,21 +4,11 @@ rm(list = ls())
 
 source("R/interpolate_fun.R")
 
-# read_csv(
-#   "data/raw/database 17nov2010__DATA.csv",
-#   skip = 3,
-#   col_names = c(
-#     "cast",
-#     "bottle",
-#     "latitude",
-#     "longitude",
-#     "depth"
-#   )
-# )
-
-pp <- data.table::fread("data/raw/database 17nov2010__DATA.csv",
+pp <- data.table::fread(
+  "data/raw/database 17nov2010__DATA.csv",
   skip = 3,
-  select = c(1, 2, 5, 20), col.names = c(
+  select = c(1, 2, 5, 20),
+  col.names = c(
     "cast",
     "bottle",
     "depth",
@@ -41,6 +31,17 @@ df <- inner_join(stations, pp, by = "cast") %>%
 
 df %>%
   count(station, depth, sort = TRUE)
+
+df %>%
+  ggplot(aes(x = primary_production_mgc_m3_24h)) +
+  geom_histogram() +
+  facet_wrap(~transect, scales = "free")
+
+# Remove the extreme value of PP (544) as discussed with Patrick Rimbault (see
+# email).
+
+df <- df %>%
+  filter(!primary_production_mgc_m3_24h == max(primary_production_mgc_m3_24h))
 
 df %>%
   ggplot(aes(x = latitude, y = depth)) +
@@ -67,7 +68,7 @@ df %>%
 # Interpolation -----------------------------------------------------------
 
 res <- df %>%
-  filter(primary_production_mgc_m3_24h <= 25) %>%
+  # filter(primary_production_mgc_m3_24h <= 25) %>%
   group_nest(transect) %>%
   mutate(interpolated_pp = map(
     data,
@@ -102,7 +103,7 @@ p <- res %>%
     z = z,
     fill = z
   )) +
-  geom_isobands(color = NA, breaks = seq(0, 200, by = 0.1)) +
+  geom_isobands(color = NA, breaks = seq(0, 25, by = 0.25)) +
   geom_text(
     data = station_labels,
     aes(x = latitude, y = 0, label = station),
@@ -127,8 +128,11 @@ p <- res %>%
   ) +
   paletteer::scale_fill_paletteer_c(
     "oompaBase::jetColors",
-    trans = "sqrt",
-    breaks = scales::breaks_pretty(n = 6),
+    trans = "log10",
+    breaks = c(1, 10, 25),
+    limits = c(1, 25),
+    labels = c("0", "10", ">25"),
+    oob = scales::squish,
     guide =
       guide_colorbar(
         barwidth = unit(8, "cm"),
@@ -141,7 +145,7 @@ p <- res %>%
   labs(
     x = "Latitude",
     y = "Depth (m)",
-    fill = bquote(Primary~production~(mgC~m^{-3}~24*h^{-1}))
+    fill = bquote(Primary~production~(mgC~m^{-3}~d^{-1}))
   ) +
   theme(
     panel.grid = element_blank(),
