@@ -27,15 +27,23 @@ df_viz <- df %>%
 
 df_viz
 
+# Unit conversion ---------------------------------------------------------
+
+df_viz <- df_viz %>%
+  mutate(across(starts_with("co"), ~ . * 60 * 60 / 1000 * 10^9,
+    .names = "{str_match(col, 'co2?_production')}_nmol_l1_h1"
+  ))
+
 lab <- c(
   "600" = "Transect 600",
   "300" = "Transect 300"
 )
 
 p1 <- df_viz %>%
+  select(!contains("m3_s1")) %>%
   pivot_longer(starts_with("co"), names_to = "type", values_to = "flux") %>%
   mutate(station = fct_reorder(as.character(station), station, .desc = TRUE)) %>%
-  ggplot(aes(x = flux * 1e6, y = station, fill = type)) +
+  ggplot(aes(x = flux, y = station, fill = type)) +
   geom_col() +
   scale_x_continuous(expand = expansion(mult = c(0, 0.05))) +
   scale_y_discrete(expand = expansion(mult = c(0, 0))) +
@@ -50,12 +58,12 @@ p1 <- df_viz %>%
       keywidth = unit(4, "cm"),
       keyheight = unit(0.2, "cm")
     ),
-    breaks = c("co2_production_moles_m3_s1", "co_production_moles_m3_s1"),
+    breaks = c("co2_production_nmol_l1_h1", "co_production_nmol_l1_h1"),
     labels = c(bquote("Carbon dioxide"~(CO[2])), bquote("Carbon monoxide"~(CO))),
     values = c("#A3BE8CFF", "#BF616AFF")
   ) +
   labs(
-    x = bquote("Production rate"~("µmol"~m^{-3}~s^{-1})),
+    x = bquote("Production rate"~("nmol"~L^{-1}~h^{-1})),
     y = "Station"
   ) +
   theme(
