@@ -1,3 +1,9 @@
+# <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+# AUTHOR:       Philippe Massicotte
+#
+# DESCRIPTION:  Extract variables and PIs from the CYBER website.
+# <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+
 rm(list = ls())
 
 url <- "http://www.obs-vlfr.fr/proof/php/malina/x_datalist_1.php?xxop=malina&xxcamp=malina"
@@ -21,4 +27,14 @@ df <- df %>%
 
 df %>%
   write_csv("data/clean/table1.csv")
+
+# Extract all PIs ---------------------------------------------------------
+
+df %>%
+  separate_rows(pi, sep = "/") %>%
+  mutate(pi = str_squish(pi)) %>%
+  pull(pi) %>%
+  unique() %>%
+  sort() %>%
+  clipr::write_clip()
 
