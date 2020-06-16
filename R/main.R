@@ -22,6 +22,7 @@ library(MBA)
 library(ggisoband) # devtools::install_github("clauswilke/ggisoband")
 library(patchwork)
 library(readxl)
+library(rvest)
 
 ## Set default ggplot2 font size and font family
 # devtools::install_github("PMassicotte/ggpmthemes")
