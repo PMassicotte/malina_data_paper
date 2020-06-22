@@ -23,6 +23,7 @@ library(ggisoband) # devtools::install_github("clauswilke/ggisoband")
 library(patchwork)
 library(readxl)
 library(rvest)
+library(treemapify)
 
 ## Set default ggplot2 font size and font family
 # devtools::install_github("PMassicotte/ggpmthemes")
@@ -52,3 +53,5 @@ source("R/fig08.R")
 source("R/fig09.R")
 source("R/fig10.R")
 source("R/fig11.R")
+source("R/fig12.R")
+source("R/fig13.R")

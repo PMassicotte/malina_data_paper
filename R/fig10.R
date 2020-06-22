@@ -1,152 +1,84 @@
-# Figure on DOM oxydation
+# <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+# AUTHOR:       Daniel Vaulot
+#
+# DESCRIPTION:  Phytoplankton diversity
+# <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
 
 rm(list = ls())
 
-# Photo-oxydation ---------------------------------------------------------
+# Function to draw treemaps -----------------------------
 
-df <- read_excel(
-  "data/raw/Malina_data_compilation-Xie_DIC & CO photoproduction rate.xlsx",
-  skip = 4,
-  col_names = c(
-    "station",
-    "depth",
-    "cutoff_wavelength_50_percent",
-    "co2_production_moles_m3_s1",
-    "co_production_moles_m3_s1"
-  ),
-  na = c("no data", "", " ")
-)
+long_treemap <- function(df, group1, group2, title, colors = NULL) {
+  df <- df %>%
+    count({{ group1 }}, {{ group2 }})
 
-df_viz <- df %>%
-  filter(depth == "surface") %>%
-  mutate(transect = station %/% 100 * 100) %>%
-  filter(transect %in% c(300, 600)) %>%
-  filter(cutoff_wavelength_50_percent %in% c(280, 295)) %>%
-  mutate(transect = factor(transect, levels = c("600", "300"))) %>%
-  filter(cutoff_wavelength_50_percent == 295)
-
-df_viz
-
-# Unit conversion ---------------------------------------------------------
-
-df_viz <- df_viz %>%
-  mutate(across(starts_with("co"), ~ . * 60 * 60 / 1000 * 10^9,
-    .names = "{str_match(col, 'co2?_production')}_nmol_l1_h1"
-  ))
-
-lab <- c(
-  "600" = "Transect 600",
-  "300" = "Transect 300"
-)
-
-p1 <- df_viz %>%
-  select(!contains("m3_s1")) %>%
-  pivot_longer(starts_with("co"), names_to = "type", values_to = "flux") %>%
-  mutate(station = fct_reorder(as.character(station), station, .desc = TRUE)) %>%
-  ggplot(aes(x = flux, y = station, fill = type)) +
-  geom_col() +
-  scale_x_continuous(expand = expansion(mult = c(0, 0.05))) +
-  scale_y_discrete(expand = expansion(mult = c(0, 0))) +
-  facet_wrap(~transect,
-    scales = "free_y",
-    labeller = labeller(transect = lab)
-  ) +
-  scale_fill_manual(
-    guide = guide_legend(
-      label.position = "top",
-      label.theme = element_text(face = "bold", family = "Poppins", size = 8),
-      keywidth = unit(4, "cm"),
-      keyheight = unit(0.2, "cm")
-    ),
-    breaks = c("co2_production_nmol_l1_h1", "co_production_nmol_l1_h1"),
-    labels = c(bquote("Carbon dioxide"~(CO[2])), bquote("Carbon monoxide"~(CO))),
-    values = c("#A3BE8CFF", "#BF616AFF")
-  ) +
-  labs(
-    x = bquote("Production rate"~("nmol"~L^{-1}~h^{-1})),
-    y = "Station"
-  ) +
-  theme(
-    plot.caption = element_text(size = 4),
-    legend.key.size = unit(0.5, "cm"),
-    legend.position = "bottom",
-    legend.title = element_blank(),
-    strip.background = element_blank(),
-    strip.text.x = element_text(hjust = 0, size = 10, face = "bold"),
-    strip.text.y = element_text(hjust = 0, size = 10, face = "bold"),
-    panel.border = element_blank(),
-    axis.ticks = element_blank(),
-    panel.spacing.y = unit(2, "lines")
-  )
-
-paletteer::paletteer_d("nord::aurora")
-
-# Autoxidation ------------------------------------------------------------
-
-autoxidation <- read_excel("data/raw/new_data/Données autoxydation.xlsx") %>%
-  janitor::clean_names() %>%
-  janitor::remove_empty() %>%
-  filter(!str_detect(station, fixed("station", ignore_case = TRUE))) %>%
-  type_convert() %>%
-  pivot_longer(-station, names_to = "process", values_to = "percent") %>%
-  mutate(station = str_remove_all(station, "St ")) %>%
-  mutate(percent = percent / 100) %>%
-  mutate(process = str_replace_all(process, "_", " ")) %>%
-  mutate(process = str_remove_all(process, " percent")) %>%
-  mutate(process = str_to_sentence(process)) %>%
-  mutate(transect = rep(c("300", "600"), each = 14)) %>%
-  mutate(transect = factor(transect, levels = c("600", "300")))
-
-autoxidation
-
-autoxidation <- autoxidation %>%
-  mutate(station_index = parse_number(station)) %>%
-  mutate(station_index = ifelse(is.na(station_index), 999, station_index)) %>%
-  mutate(station = fct_reorder2(station, station_index, transect, max))
-
-autoxidation
-
-p2 <- autoxidation %>%
-  ggplot(aes(x = station, y = percent, fill = process)) +
-  geom_col(position = "dodge") +
-  facet_wrap(~transect, scales = "free_y", labeller = labeller(transect = lab)) +
-  labs(
-    x = "Station",
-    y = NULL
-  ) +
-  scale_y_continuous(labels = scales::label_percent(), limits = c(0, 1)) +
-  paletteer::scale_fill_paletteer_d("jcolors::pal5",
-    guide = guide_legend(
-      label.position = "top",
-      label.theme = element_text(family = "Poppins", size = 8),
-      keywidth = unit(4, "cm"),
-      keyheight = unit(0.2, "cm")
+  gg <- ggplot(df, aes(
+    area = n,
+    fill = {{ group2 }},
+    label = {{ group2 }},
+    subgroup = {{ group1 }}
+  )) +
+    ggtitle(title) +
+    geom_treemap() +
+    geom_treemap_subgroup_border(colour = "white") +
+    geom_treemap_text(
+      colour = "yellow",
+      place = "topleft",
+      reflow = TRUE,
+      padding.x = grid::unit(1, "mm"),
+      padding.y = grid::unit(1, "mm")
+    ) +
+    geom_treemap_subgroup_text(
+      place = "centre",
+      grow = TRUE,
+      alpha = 0.5,
+      colour = "white",
+      fontface = "italic",
+      min.size = 5
+    ) +
+    theme(
+      legend.position = "none",
+      plot.title = element_text(size = 8, face = "bold"),
+      panel.border = element_blank(),
+      panel.grid = element_blank()
     )
-  ) +
-  theme(
-    plot.caption = element_text(size = 4),
-    legend.key.size = unit(0.5, "cm"),
-    legend.position = "bottom",
-    legend.title = element_blank(),
-    strip.background = element_blank(),
-    strip.text = element_text(hjust = 0, size = 10, face = "bold"),
-    panel.border = element_blank(),
-    axis.ticks = element_blank(),
-    panel.spacing.y = unit(2, "lines")
-  ) +
-  coord_flip()
+  if (is.null(colors)) {
+    #    gg <- gg + scale_fill_viridis_d()
+    gg <-
+      gg + paletteer::scale_fill_paletteer_d("ggsci::default_igv")
+  } else {
+    gg <- gg + scale_fill_manual(values = colors)
+  }
 
+  return(gg)
+}
+
+# Plot treemaps for cultures -----------------------------
+
+df <- read_excel("data/raw/MALINA cultures 2020.xlsx")
+g_cult <- long_treemap(df, class, species, "Cultures")
+
+g_cult
+
+# Plot treemaps for clone libraries -----------------------------
+
+df <- read_excel("data/raw/MALINA sequences 2020.xlsx")
+g_seq <- long_treemap(df, class, species, "Clone libraries")
+
+g_seq
 
 # Save --------------------------------------------------------------------
 
-p <- p1 + p2 +
-  plot_layout(ncol = 1, heights = c(0.5, 0.5)) +
+
+p <- g_seq + g_cult +
+  plot_layout(ncol = 1) +
   plot_annotation(tag_levels = "A") &
   theme(plot.tag = element_text(face = "bold"))
 
-ggsave("graphs/fig10.pdf",
+ggsave(
+  "graphs/fig10.pdf",
   device = cairo_pdf,
   width = 17.5,
-  height = 18,
+  height = 14,
   units = "cm"
 )
