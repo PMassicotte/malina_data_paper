@@ -130,9 +130,7 @@ p_pico <- res_pico %>%
   labs(
     x = "Latitude",
     y = "Depth (m)",
-    fill = bquote("Pico-eukaryotes" ~ ("cells" ~ "mL"^{
-      -1
-    }))
+    fill = bquote("Pico-eukaryotes" ~ ("cells" ~ "mL"^{-1}))
   ) +
   theme(
     panel.grid = element_blank(),
@@ -233,9 +231,7 @@ p_nano <- res_nano %>%
   labs(
     x = "Latitude",
     y = "Depth (m)",
-    fill = bquote("Nano-eukaryotes" ~ ("cells" ~ "mL"^{
-      -1
-    }))
+    fill = bquote("Nano-eukaryotes" ~ ("cells" ~ "mL"^{-1}))
   ) +
   theme(
     panel.grid = element_blank(),
