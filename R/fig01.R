@@ -173,7 +173,8 @@ p1 <- ggplot() +
   ggspatial::annotation_scale(
     location = "br",
     width_hint = 0.25,
-    height = unit(0.1, "cm")
+    height = unit(0.1, "cm"),
+    line_width = 0.25
   ) +
   theme(
     axis.title = element_blank(),

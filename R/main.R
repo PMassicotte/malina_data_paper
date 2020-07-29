@@ -25,6 +25,7 @@ library(readxl)
 library(rvest)
 library(treemapify)
 library(googlesheets4)
+library(data.table)
 
 ## Set default ggplot2 font size and font family
 # devtools::install_github("PMassicotte/ggpmthemes")
