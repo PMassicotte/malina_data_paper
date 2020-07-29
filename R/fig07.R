@@ -65,7 +65,7 @@ p2 <- df %>%
   scale_y_continuous(breaks = scales::breaks_pretty(n = 6)) +
   labs(
     x = "Salinity (PSU)",
-    y = bquote(TDLP9 ~ (nmol ~ L^{-1}))
+    y = bquote(TDLP[9] ~ (nmol ~ L^{-1}))
   ) +
   theme(
     strip.background = element_blank(),
