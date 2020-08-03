@@ -1,102 +1,160 @@
-# Figure on DOC, THAA and TDLP9. Data given by Cedric Fichot.
-
 rm(list = ls())
 
-df <- vroom::vroom(fs::dir_ls("data/raw/fig_doc_cedric_fichot/")) %>%
-  janitor::clean_names() %>%
-  mutate(transect = station %/% 100 * 100) %>%
+df <- read_csv("data/clean/cdom_ultrapath.csv") %>%
+  mutate(transect = station_cast %/% 100 * 100) %>%
+  filter(transect %in% c(300, 600)) %>%
   mutate(transect = factor(transect, levels = c("600", "300")))
 
-df
+# There are mostly surface CDOM
+df %>%
+  filter(wav == 200) %>%
+  count(depth)
+
+df <- df %>%
+  filter(depth == 0)
+
+# Type:
+# n = niskin
+# z = zodiacc
+# g = barge
+df %>%
+  filter(wav <= 500) %>%
+  ggplot(aes(x = wav, y = absorption, group = filename)) +
+  geom_line(size = 0.25) +
+  facet_wrap(~type)
+
+# Looks like are some spectra were duplicated, i.e. measured at the same
+# location but form the zodiac and the "barge".
+dup <- df %>%
+  filter(wav == 200) %>%
+  count(station_cast, depth, sort = TRUE) %>%
+  filter(n > 1) %>%
+  pull(station_cast)
+
+dup
+
+df %>%
+  filter(station_cast %in% dup) %>%
+  ggplot(aes(x = wav, y = absorption, group = filename)) +
+  geom_line() +
+  facet_wrap(~station_cast, scales = "free")
+
+# Average CDOM absorption spectra
+
+cdom <- df %>%
+  group_by(wav, station_cast, depth, transect) %>%
+  summarise(absorption = mean(absorption, na.rm = TRUE), n = n()) %>%
+  rename(station = station_cast) %>%
+  ungroup()
+
+cdom %>%
+  ggplot(aes(x = wav, y = absorption, group = station)) +
+  geom_line() +
+  facet_wrap(~transect)
+
+# Get station information
+
+stations <- read_csv("data/clean/stations.csv") %>%
+  distinct(station, .keep_all = TRUE) %>%
+  select(station, longitude, latitude)
+
+cdom %>%
+  anti_join(stations, by = "station") %>%
+  filter(wav == 200)
+
+cdom <- cdom %>%
+  inner_join(stations, by = "station")
 
 lab <- c(
   "600" = "Transect 600",
   "300" = "Transect 300"
 )
 
-# DOC ---------------------------------------------------------------------
+# Plot aCDOM --------------------------------------------------------------
 
-p1 <- df %>%
-  drop_na(doc) %>%
-  ggplot(aes(x = salinity, y = doc)) +
+df_viz <- cdom %>%
+  filter(between(wav, 254, 600)) %>%
+  filter(station %in% c(697, 620, 398, 320))
+
+df_station <- df_viz %>%
+  group_by(station) %>%
+  filter(wav == min(wav)) %>%
+  ungroup()
+
+p1 <- df_viz %>%
+  ggplot(aes(x = wav, y = absorption, group = station)) +
   geom_line() +
-  geom_point() +
-  facet_wrap(~transect, ncol = 2, labeller = labeller(transect = lab)) +
-  ggrepel::geom_text_repel(aes(label = station),
+  facet_wrap(~transect, ncol = 1, labeller = labeller(transect = lab)) +
+  geom_text(
+    data = df_station,
+    aes(label = station),
     size = 2.5,
-    color = "gray50",
-    box.padding = unit(0.35, "lines"),
-    segment.size = 0.25,
-    nudge_x = 0.5,
-    nudge_y = 0.5
+    hjust = 1.25,
+    color =
+      "gray50"
   ) +
-  scale_x_continuous(breaks = scales::breaks_pretty(n = 8), limits = c(0, 27)) +
-  scale_y_continuous(breaks = scales::breaks_pretty(n = 6)) +
+  scale_x_continuous(
+    expand = expansion(mult = c(0.12, 0.05)),
+    breaks = seq(250, 600, by = 50)
+  ) +
+  # coord_cartesian(xlim = c(250, 600), expand = TRUE) +
+  scale_y_continuous(
+    expand = expansion(mult = c(0.01, 0.12)),
+    breaks = scales::breaks_pretty(n = 4)
+  ) +
   labs(
-    x = "Salinity (PSU)",
-    y = bquote(DOC ~ (µmol ~ L^{-1}))
+    x = "Wavelength (nm)",
+    y = bquote(italic(a)["CDOM"]~(m^{-1}))
   ) +
   theme(
     strip.background = element_blank(),
     strip.text = element_text(hjust = 0, size = 10, face = "bold"),
     panel.border = element_blank(),
-    axis.ticks = element_blank(),
-    axis.text.x = element_blank(),
-    axis.title.x = element_blank()
+    axis.ticks = element_blank()
   )
 
-# TDLP9 -------------------------------------------------------------------
+# How many times higher the absorption is higher between north and south
+# stations? Approximately 15 times higher.
+df_viz %>%
+  filter(wav == 254) %>%
+  group_by(transect) %>%
+  summarise(difference = max(absorption) / min(absorption))
 
-p2 <- df %>%
-  drop_na(tdlp9) %>%
-  ggplot(aes(x = salinity, y = tdlp9)) +
+# Plot SUVA ---------------------------------------------------------------
+
+set.seed(1234)
+
+# SUVA254
+
+doc <- read_csv("data/raw/csv/doc.csv") %>%
+  select(station, depth, doc_u_mc) %>%
+  group_by(station, depth) %>%
+  summarise(across(everything(), mean)) %>%
+  ungroup() %>%
+  mutate(doc_mc = doc_u_mc / 1e6) %>%
+  mutate(doc_g = doc_mc * 12) %>%
+  mutate(doc_mg = doc_g * 1000)
+
+doc
+
+p2 <- cdom %>%
+  filter(wav == 254) %>%
+  inner_join(doc) %>%
+  mutate(suva254 = absorption / doc_mg) %>%
+  ggplot(aes(x = latitude, y = suva254)) +
   geom_line() +
   geom_point() +
-  facet_wrap(~transect, ncol = 2, labeller = labeller(transect = lab)) +
+  facet_wrap(~transect, scales = "free_x", ncol = 1, labeller = labeller(transect = lab)) +
   ggrepel::geom_text_repel(aes(label = station),
-    size = 2.5,
-    color = "gray50",
-    box.padding = unit(0.35, "lines"),
-    segment.size = 0.25,
-    nudge_x = 0.5,
-    nudge_y = 0.5
-  ) +
-  scale_x_continuous(breaks = scales::breaks_pretty(n = 8), limits = c(0, 27)) +
-  scale_y_continuous(breaks = scales::breaks_pretty(n = 6)) +
+  size = 2.5,
+  color = "gray50",
+  box.padding = unit(0.25, "lines")
+) +
+  scale_x_continuous(breaks = scales::breaks_pretty(n = 6)) +
+  scale_y_continuous(breaks = scales::breaks_pretty(n = 4)) +
   labs(
-    x = "Salinity (PSU)",
-    y = bquote(TDLP[9] ~ (nmol ~ L^{-1}))
-  ) +
-  theme(
-    strip.background = element_blank(),
-    strip.text = element_text(hjust = 0, size = 10, face = "bold"),
-    panel.border = element_blank(),
-    axis.ticks = element_blank(),
-    axis.text.x = element_blank(),
-    axis.title.x = element_blank()
-  )
-
-# THAA --------------------------------------------------------------------
-
-p3 <- df %>%
-  drop_na(thaa) %>%
-  ggplot(aes(x = salinity, y = thaa)) +
-  geom_line() +
-  geom_point() +
-  facet_wrap(~transect, ncol = 2, labeller = labeller(transect = lab)) +
-  ggrepel::geom_text_repel(aes(label = station),
-    size = 2.5,
-    color = "gray50",
-    box.padding = unit(0.35, "lines"),
-    segment.size = 0.25,
-    nudge_x = 0.5,
-    nudge_y = 0.5
-  ) +
-  scale_x_continuous(breaks = scales::breaks_pretty(n = 8), limits = c(0, 27)) +
-  scale_y_continuous(breaks = scales::breaks_pretty(n = 6)) +
-  labs(
-    x = "Salinity (PSU)",
-    y = bquote(THAA ~ (nmol ~ L^{-1}))
+    x = "Latitude",
+    y = bquote(SUVA[254]~(L~m^{-1}~mgC^{-1}))
   ) +
   theme(
     strip.background = element_blank(),
@@ -107,8 +165,8 @@ p3 <- df %>%
 
 # Combine plots -----------------------------------------------------------
 
-p <- p1 + p2 + p3 +
-  plot_layout(ncol = 1) +
+p <- p1 + p2 +
+  plot_layout(ncol = 2) +
   plot_annotation(tag_levels = "A") &
   theme(plot.tag = element_text(face = "bold"))
 
@@ -116,6 +174,6 @@ ggsave(
   "graphs/fig07.pdf",
   device = cairo_pdf,
   width = 17.5,
-  height = 18,
+  height = 15 / 2,
   units = "cm"
 )
