@@ -10,6 +10,10 @@ df <- data.table::fread("data/raw/csv/bbsiop.csv") %>%
   pivot_wider(names_from = var, values_from = value) %>%
   mutate(spectra_id = group_indices(., fileme, depth))
 
+df <- df %>%
+  mutate(station = parse_number(station_alias)) %>%
+  mutate(transect = station %/% 100 * 100)
+
 df %>%
   count(spectra_id, sort = TRUE) %>%
   verify(n == 8)
@@ -20,11 +24,9 @@ df %>%
   geom_line()
 
 df %>%
-  filter(station != 42) %>%
-  # filter(bbp < 1) %>%
-  drop_na(bbp) %>%
-  # filter(station %in% c(2, 10, 11)) %>%
-  ggplot(aes(x = bbp, y = depth, color = factor(wavelength))) +
+  filter(transect %in% c(300, 600)) %>%
+  drop_na(bb) %>%
+  ggplot(aes(x = bb, y = depth, color = factor(wavelength))) +
   geom_path() +
   scale_y_reverse() +
   facet_wrap(~station, scales = "free")

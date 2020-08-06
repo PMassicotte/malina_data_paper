@@ -13,6 +13,9 @@ eu %>%
   verify(n == 8)
 
 eu %>%
+  distinct(station)
+
+eu %>%
   ggplot(aes(x = wavelength, y = eu_w_cm_2_nm_1, group = id, color = lubridate::hour(time))) +
   geom_line(size = 0.25, alpha = 0.2) +
   facet_wrap(~date) +
