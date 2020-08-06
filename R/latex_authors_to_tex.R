@@ -91,7 +91,6 @@ authors %>%
   clipr::write_clip()
 
 authors %>%
-  filter(str_detect(institution, "Asian")) %>%
-  pull(email) %>%
-  paste0(., collapse = ";") %>%
+  filter(is.na(email)) %>%
+  select(firstname, lastname) %>%
   clipr::write_clip()
