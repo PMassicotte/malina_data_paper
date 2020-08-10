@@ -23,14 +23,14 @@ authors <- authors %>%
     firstname = "Philippe",
     lastname = "Massicotte",
     email = "philippe.massicotte@takuvik.ulaval.ca",
-    institution = "UMI Takuvik, CNRS/Université Laval, Québec, QC Canada",
+    institution = "Takuvik Joint International Laboratory / UMI 3376, ULAVAL (Canada) - CNRS (France), Université Laval, Québec, QC, Canada",
     .before = 1
   ) %>%
   add_row(
     firstname = "Marcel",
     lastname = "Babin",
     email = "marcel.babin@takuvik.ulaval.ca",
-    institution = "UMI Takuvik, CNRS/Université Laval, Québec, QC Canada"
+    institution = "Takuvik Joint International Laboratory / UMI 3376, ULAVAL (Canada) - CNRS (France), Université Laval, Québec, QC, Canada"
   )
 
 # Extract the institution -------------------------------------------------
