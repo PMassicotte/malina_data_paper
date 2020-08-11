@@ -3,7 +3,7 @@ table1 <- read_sheet("1KOnp0XAyTZYUUx7wL7TMNBP3yo4utWW--jZQsnbcMNk", sheet = "ta
   rename(
     Parameters = parameter,
     Method = method,
-    `Sampling devices` = sampling,
+    Sampling = sampling,
     `Principal investigators` = pi
   )
 
