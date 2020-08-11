@@ -1,13 +1,15 @@
 table1 <- read_sheet("1KOnp0XAyTZYUUx7wL7TMNBP3yo4utWW--jZQsnbcMNk", sheet = "table1") %>%
   janitor::clean_names() %>%
   rename(
-    Parameter = parameter,
+    Parameters = parameter,
     Method = method,
-    `Sampling device` = sampling,
+    `Sampling devices` = sampling,
     `Principal investigators` = pi
   )
 
-table1 <- table1 %>%
+# Format the table --------------------------------------------------------
+
+table1_formatted <- table1 %>%
   mutate(across(where(is.character), ~ str_replace_all(., "#", "\\\\#"))) %>%
   mutate(across(where(is.character), ~ str_replace_all(., "\\(Lu\\(z\\)\\)", "($L_u(z)$)"))) %>%
   mutate(across(where(is.character), ~ str_replace_all(., "\\(Eu\\(z\\)\\)", "($E_u(z)$)"))) %>%
@@ -17,10 +19,29 @@ table1 <- table1 %>%
   mutate(across(where(is.character), ~ str_replace_all(., "NO3", "NO$^-_3$"))) %>%
   mutate(across(where(is.character), ~ str_replace_all(., "NO2", "NO$^-_2$"))) %>%
   mutate(across(where(is.character), ~ str_replace_all(., "\\(0\\+\\)", "($0^+$)"))) %>%
-  mutate(across(where(is.character), ~ str_replace_all(., "Si\\(OH\\)4", "$Si(OH)_4$"))) %>%
-  mutate(across(where(is.character), ~ str_replace_all(., "PO4", "(PO$_4)^{3-}$")))
+  mutate(across(where(is.character), ~ str_replace_all(., "Si\\(OH\\)4", "Si(OH)\\\\textsubscript{4}"))) %>%
+  mutate(across(where(is.character), ~ str_replace_all(., "PO4", "(PO$_4)^{3-}$"))) %>%
+  mutate(across(where(is.character), ~ str_replace_all(., "O2", "O\\\\textsuperscript{2}"))) %>%
+  mutate(across(where(is.character), ~ str_replace_all(., "\\)\\(", "\\) \\("))) %>%
+  mutate(across(where(is.character), ~ str_replace_all(., "(\\w+)\\(", "\\1 \\("))) %>%
+  mutate(across(where(is.character), ~ str_replace_all(., "\\)(\\w+)", "(\\w+) \\1"))) %>%
+  mutate(across(where(is.character), ~ str_replace_all(., "14C", "\\\\textsuperscript{14}C"))) %>%
+  mutate(across(where(is.character), ~ str_replace_all(., "13C", "\\\\textsuperscript{13}C"))) %>%
+  mutate(across(where(is.character), ~ str_replace_all(., "15C", "\\\\textsuperscript{15}C"))) %>%
+  mutate(across(where(is.character), ~ str_replace_all(., "18O", "\\\\textsuperscript{18}O"))) %>%
+  mutate(across(where(is.character), ~ str_replace_all(., "15N", "\\\\textsuperscript{15}N"))) %>%
+  mutate(across(where(is.character), ~ str_replace_all(., "N2", "N\\\\textsubscript{2}"))) %>%
+  mutate(across(where(is.character), ~ str_replace_all(., "210Pb", "\\\\textsuperscript{210}Pb"))) %>%
+  mutate(across(where(is.character), ~ str_replace_all(., "226Ra", "\\\\textsuperscript{226}Ra"))) %>%
+  mutate(across(where(is.character), ~ str_replace_all(., "234Th", "\\\\textsuperscript{234}Th"))) %>%
+  mutate(across(where(is.character), ~ str_replace_all(., "238U", "\\\\textsuperscript{238}U"))) %>%
+  mutate(across(where(is.character), ~ str_replace_all(., "137Cs", "\\\\textsuperscript{137}Cs"))) %>%
+  mutate(across(where(is.character), ~ str_replace_all(., "209Po", "\\\\textsuperscript{209}Po"))) %>%
+  mutate(across(where(is.character), ~ str_replace_all(., "H2O", "H\\\\textsubscript{2}O"))) %>%
+  # mutate(across(where(is.character), ~ str_replace_all(., "T \\(z\\)", "T\\(z\\)"))) %>%
+  mutate(across(where(is.character), ~ str_replace_all(., "(\\d{3})nm", "\\1 nm")))
 
-table1 %>%
+table1_formatted %>%
   kable(
     "latex",
     longtable = TRUE,
@@ -30,8 +51,8 @@ table1 %>%
   ) %>%
   kable_styling(
     latex_options = c("repeat_header"),
-    font_size = 6
+    font_size = 5
   ) %>%
   # row_spec(c(0), bold = TRUE) %>%
-  landscape() %>%
+  # landscape() %>%
   write_lines(here::here("tables/table1.tex"))
