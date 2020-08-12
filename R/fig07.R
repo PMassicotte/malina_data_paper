@@ -1,5 +1,8 @@
 rm(list = ls())
 
+
+# Dissolved absorption ----------------------------------------------------
+
 df <- read_csv("data/clean/cdom_ultrapath.csv") %>%
   mutate(transect = station_cast %/% 100 * 100) %>%
   filter(transect %in% c(300, 600)) %>%
@@ -163,10 +166,78 @@ p2 <- cdom %>%
     axis.ticks = element_blank()
   )
 
+# Particulate absorption --------------------------------------------------
+
+ap <- read_csv("data/raw/csv/aptot.csv") %>%
+  janitor::clean_names() %>%
+  filter(pressure == 0) %>%
+  filter(method == "BRG") %>%
+  select(-ap443_1)
+
+ap
+
+df <- ap %>%
+  pivot_longer(starts_with("ap"), names_to = "wavelength", values_to = "ap") %>%
+  mutate(wavelength = parse_number(wavelength)) %>%
+  filter(between(wavelength, 254, 600)) %>%
+  filter(station %in% c(697, 620, 398, 320)) %>%
+  mutate(station = parse_number(station)) %>%
+  mutate(transect = station %/% 100 * 100)
+
+df
+
+df <- df %>%
+  group_by(station, wavelength, method, transect) %>%
+  summarise(ap = mean(ap, na.rm = TRUE), n = n()) %>%
+  group_by(transect) %>%
+  mutate(position = ifelse(station == max(station), "South stations", "North stations")) %>%
+  ungroup()
+
+df %>%
+  ggplot(aes(x = wavelength, y = ap, color = factor(station))) +
+  geom_line() +
+  facet_wrap(~transect, scales = "free")
+
+df_station <- df %>%
+  group_by(station) %>%
+  filter(wavelength == min(wavelength)) %>%
+  ungroup()
+
+p3 <- df %>%
+  ggplot(aes(x = wavelength, y = ap, group = station)) +
+  geom_line() +
+  facet_wrap(~position, scales = "free", ncol = 2) +
+  geom_text(
+    data = df_station,
+    aes(label = station),
+    size = 2.5,
+    hjust = 1.25,
+    color =
+      "gray50"
+  ) +
+  scale_x_continuous(
+    expand = expansion(mult = c(0.12, 0.05)),
+    breaks = seq(250, 800, by = 50)
+  ) +
+  scale_y_continuous(
+    expand = expansion(mult = c(0.01, 0.12)),
+    breaks = scales::breaks_pretty(n = 5)
+  ) +
+  labs(
+    x = "Wavelength (nm)",
+    y = bquote(italic(a)[p]~(m^{-1}))
+  ) +
+  theme(
+    strip.background = element_blank(),
+    strip.text = element_text(hjust = 0, size = 10, face = "bold"),
+    panel.border = element_blank(),
+    axis.ticks = element_blank()
+  )
+
 # Combine plots -----------------------------------------------------------
 
-p <- p1 + p2 +
-  plot_layout(ncol = 2) +
+p <- {p1 + p2} / p3 +
+  plot_layout(heights = c(0.5, 0.25)) +
   plot_annotation(tag_levels = "A") &
   theme(plot.tag = element_text(face = "bold"))
 
@@ -174,6 +245,6 @@ ggsave(
   "graphs/fig07.pdf",
   device = cairo_pdf,
   width = 17.5,
-  height = 15 / 2,
+  height = 15,
   units = "cm"
 )
