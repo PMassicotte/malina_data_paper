@@ -77,7 +77,18 @@ lab <- c(
 
 df_viz <- cdom %>%
   filter(between(wav, 254, 600)) %>%
-  filter(station %in% c(697, 620, 398, 320))
+  filter(station %in% c(697, 620, 398, 320)) %>%
+  group_by(transect) %>%
+  mutate(position = ifelse(
+    station == max(station),
+    "Estuary stations (south)",
+    "Open water stations (north)"
+  )) %>%
+  ungroup() %>%
+  mutate(position = factor(
+    position,
+    levels = c("Estuary stations (south)", "Open water stations (north)")
+  ))
 
 df_station <- df_viz %>%
   group_by(station) %>%
@@ -87,7 +98,7 @@ df_station <- df_viz %>%
 p1 <- df_viz %>%
   ggplot(aes(x = wav, y = absorption, group = station)) +
   geom_line() +
-  facet_wrap(~transect, ncol = 1, labeller = labeller(transect = lab)) +
+  facet_wrap(~position, ncol = 1, scales = "free_y") +
   geom_text(
     data = df_station,
     aes(label = station),
@@ -103,7 +114,7 @@ p1 <- df_viz %>%
   # coord_cartesian(xlim = c(250, 600), expand = TRUE) +
   scale_y_continuous(
     expand = expansion(mult = c(0.01, 0.12)),
-    breaks = scales::breaks_pretty(n = 4)
+    breaks = scales::breaks_pretty(n = 5)
   ) +
   labs(
     x = "Wavelength (nm)",
@@ -147,14 +158,14 @@ p2 <- cdom %>%
   ggplot(aes(x = latitude, y = suva254)) +
   geom_line() +
   geom_point() +
-  facet_wrap(~transect, scales = "free_x", ncol = 1, labeller = labeller(transect = lab)) +
+  facet_wrap(~transect, scales = "free_x", ncol = 2, labeller = labeller(transect = lab)) +
   ggrepel::geom_text_repel(aes(label = station),
   size = 2.5,
   color = "gray50",
   box.padding = unit(0.25, "lines")
 ) +
   scale_x_continuous(breaks = scales::breaks_pretty(n = 6)) +
-  scale_y_continuous(breaks = scales::breaks_pretty(n = 4)) +
+  scale_y_continuous(breaks = scales::breaks_pretty(n = 5)) +
   labs(
     x = "Latitude",
     y = bquote(SUVA[254]~(L~m^{-1}~mgC^{-1}))
@@ -190,8 +201,16 @@ df <- df %>%
   group_by(station, wavelength, method, transect) %>%
   summarise(ap = mean(ap, na.rm = TRUE), n = n()) %>%
   group_by(transect) %>%
-  mutate(position = ifelse(station == max(station), "South stations", "North stations")) %>%
-  ungroup()
+  mutate(position = ifelse(
+    station == max(station),
+    "Estuary stations (south)",
+    "Open water stations (north)"
+  )) %>%
+  ungroup() %>%
+  mutate(position = factor(
+    position,
+    levels = c("Estuary stations (south)", "Open water stations (north)")
+  ))
 
 df %>%
   ggplot(aes(x = wavelength, y = ap, color = factor(station))) +
@@ -206,7 +225,7 @@ df_station <- df %>%
 p3 <- df %>%
   ggplot(aes(x = wavelength, y = ap, group = station)) +
   geom_line() +
-  facet_wrap(~position, scales = "free", ncol = 2) +
+  facet_wrap(~position, scales = "free", ncol = 1) +
   geom_text(
     data = df_station,
     aes(label = station),
@@ -236,7 +255,7 @@ p3 <- df %>%
 
 # Combine plots -----------------------------------------------------------
 
-p <- {p1 + p2} / p3 +
+p <- {p1 + p3} / p2 +
   plot_layout(heights = c(0.5, 0.25)) +
   plot_annotation(tag_levels = "A") &
   theme(plot.tag = element_text(face = "bold"))
