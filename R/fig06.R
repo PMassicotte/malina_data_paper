@@ -212,6 +212,13 @@ df <- df %>%
     levels = c("Estuary stations (south)", "Open water stations (north)")
   ))
 
+# Compare ap(443) for estuary and open water stations
+df %>%
+  filter(wavelength == 443) %>%
+  ggplot(aes(x = factor(station), y = ap, fill = position)) +
+  geom_col() +
+  geom_text(aes(label = round(ap, digits = 2)), vjust = -1)
+
 df %>%
   ggplot(aes(x = wavelength, y = ap, color = factor(station))) +
   geom_line() +

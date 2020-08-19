@@ -94,3 +94,29 @@ authors %>%
   filter(is.na(email)) %>%
   select(firstname, lastname) %>%
   clipr::write_clip()
+
+# Vizualisation -----------------------------------------------------------
+
+authors %>%
+  count(institution, sort = TRUE) %>%
+  slice_max(order_by = n, n = 10) %>%
+  mutate(institution = str_wrap(institution, 60)) %>%
+  mutate(institution = fct_reorder(institution, n)) %>%
+  ggplot(aes(x = n, y = institution)) +
+  geom_col() +
+  geom_text(aes(label = n), color = "white", hjust = 1.5) +
+  theme(
+    axis.text.y = element_text(size = 6),
+    axis.title.y = element_blank()
+  ) +
+  labs(
+    x = "Number of authors"
+  )
+
+ggsave(
+  "~/Desktop/institutions.png",
+  # device = ragg::agg_png,
+  dpi = 600,
+  width = 6,
+  height = 6
+)

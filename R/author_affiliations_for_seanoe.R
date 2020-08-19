@@ -23,7 +23,7 @@ authors <- authors %>%
     firstname = "Philippe",
     lastname = "Massicotte",
     email = "philippe.massicotte@takuvik.ulaval.ca",
-    institution = "UMI Takuvik, CNRS/Université Laval, Québec, QC Canada",
+    institution = "Takuvik Joint International Laboratory / UMI 3376, ULAVAL (Canada) - CNRS (France), Université Laval, Québec, QC, Canada",
     orcid = "0000-0002-5919-4116",
     .before = 1
   ) %>%
@@ -31,7 +31,7 @@ authors <- authors %>%
     firstname = "Marcel",
     lastname = "Babin",
     email = "marcel.babin@takuvik.ulaval.ca",
-    institution = "UMI Takuvik, CNRS/Université Laval, Québec, QC Canada"
+    institution = "Takuvik Joint International Laboratory / UMI 3376, ULAVAL (Canada) - CNRS (France), Université Laval, Québec, QC, Canada"
   )
 
 # Extract the institution -------------------------------------------------
@@ -53,11 +53,43 @@ authors <- authors %>%
 authors <- authors %>%
   select(lastname, firstname, email, orcid, institution)
 
+
+# First format ------------------------------------------------------------
+
+authors_v1 <- authors %>%
+  group_nest(lastname, firstname, email, orcid) %>%
+  mutate(data = map(data, ~mutate(., id = paste0("institution", 1:nrow(.))))) %>%
+  unnest(cols = data) %>%
+  pivot_wider(names_from = id, values_from = "institution") %>%
+  rename_all(~str_to_title(.)) %>%
+  rename(
+    Nom = Lastname,
+    `Prénom` = Firstname
+  )
+
+authors_v1_pm <- filter(authors_v1, Nom == "Massicotte" & `Prénom` == "Philippe")
+authors_v1_mb <- filter(authors_v1, Nom == "Babin" & `Prénom` == "Marcel")
+
+authors_v1_others <- authors_v1 %>%
+  filter(!str_detect(Nom, "Massicotte|Babin"))
+
+bind_rows(authors_v1_pm, authors_v1_others, authors_v1_mb) %>%
+  write_csv("data/clean/affiliations_seanoe_v1.csv", na = "")
+
+# Second format -----------------------------------------------------------
+
 setDT(authors)[, id := .GRP, by = institution]
 
-authors %>%
+authors <- authors %>%
   as_tibble() %>%
   mutate(affiliation = paste0("affiliation", id)) %>%
   select(-id) %>%
-  pivot_wider(names_from = affiliation, values_from = institution) %>%
-  write_csv("~/Desktop/affiliations.csv")
+  pivot_wider(names_from = affiliation, values_from = institution)
+
+authors %>%
+  rename_all(~str_to_title(.)) %>%
+  rename(
+    Nom = Lastname,
+    `Prénom` = Firstname
+  ) %>%
+  write_csv("data/clean/affiliations_seanoe_v2.csv", na = "")
