@@ -107,16 +107,23 @@ authors %>%
   geom_text(aes(label = n), color = "white", hjust = 1.5) +
   theme(
     axis.text.y = element_text(size = 6),
-    axis.title.y = element_blank()
+    axis.title.y = element_blank(),
+    panel.border = element_blank(),
+    plot.title.position = "plot",
+    plot.title = element_text(hjust = 0.5, size = 26),
+    plot.subtitle = element_text(color = "#3c3c3c", family = "Roboto Condensed")
   ) +
   labs(
-    x = "Number of authors"
-  )
+    x = "Number of authors",
+    title = "Authors of the MALINA data paper",
+    subtitle = "Showing the top 10 institutions over a total of 53 (100 authors total)."
+  ) +
+  scale_x_continuous(breaks = seq(0, 20, by = 2), expand = c(0, 0))
 
 ggsave(
   "~/Desktop/institutions.png",
   # device = ragg::agg_png,
   dpi = 600,
-  width = 6,
+  width = 8,
   height = 6
 )

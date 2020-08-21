@@ -22,6 +22,7 @@ table1_formatted <- table1 %>%
   mutate(across(where(is.character), ~ str_replace_all(., "Si\\(OH\\)4", "Si(OH)\\\\textsubscript{4}"))) %>%
   mutate(across(where(is.character), ~ str_replace_all(., "PO4", "(PO$_4)^{3-}$"))) %>%
   mutate(across(where(is.character), ~ str_replace_all(., "O2", "O\\\\textsuperscript{2}"))) %>%
+  mutate(across(where(is.character), ~ str_replace_all(., "CO3", "CO\\\\textsuperscript{3}"))) %>%
   mutate(across(where(is.character), ~ str_replace_all(., "\\)\\(", "\\) \\("))) %>%
   mutate(across(where(is.character), ~ str_replace_all(., "(\\w+)\\(", "\\1 \\("))) %>%
   mutate(across(where(is.character), ~ str_replace_all(., "\\)(\\w+)", "(\\w+) \\1"))) %>%
@@ -33,13 +34,17 @@ table1_formatted <- table1 %>%
   mutate(across(where(is.character), ~ str_replace_all(., "N2", "N\\\\textsubscript{2}"))) %>%
   mutate(across(where(is.character), ~ str_replace_all(., "210Pb", "\\\\textsuperscript{210}Pb"))) %>%
   mutate(across(where(is.character), ~ str_replace_all(., "226Ra", "\\\\textsuperscript{226}Ra"))) %>%
+  mutate(across(where(is.character), ~ str_replace_all(., "228Ra", "\\\\textsuperscript{228}Ra"))) %>%
   mutate(across(where(is.character), ~ str_replace_all(., "234Th", "\\\\textsuperscript{234}Th"))) %>%
   mutate(across(where(is.character), ~ str_replace_all(., "238U", "\\\\textsuperscript{238}U"))) %>%
   mutate(across(where(is.character), ~ str_replace_all(., "137Cs", "\\\\textsuperscript{137}Cs"))) %>%
   mutate(across(where(is.character), ~ str_replace_all(., "209Po", "\\\\textsuperscript{209}Po"))) %>%
   mutate(across(where(is.character), ~ str_replace_all(., "H2O", "H\\\\textsubscript{2}O"))) %>%
-  # mutate(across(where(is.character), ~ str_replace_all(., "T \\(z\\)", "T\\(z\\)"))) %>%
-  mutate(across(where(is.character), ~ str_replace_all(., "(\\d{3})nm", "\\1 nm")))
+  mutate(across(where(is.character), ~ str_replace_all(., "Leucine-3H|Leu-3H", "Leucine-\\\\textsuperscript{3}H"))) %>%
+  mutate(across(where(is.character), ~ str_replace_all(., "Bacterial abundance", "Bacterial \\(abundance\\)"))) %>%
+  mutate(across(where(is.character), ~ str_replace_all(., "(\\d{3})nm", "\\1 nm"))) %>%
+  mutate(across(where(is.character), ~ str_replace_all(., "P waves", "P-waves"))) %>%
+  mutate(across(where(is.character), ~ str_replace_all(., "Particle Size Ditribution", "Particle Size Distribution")))
 
 table1_formatted %>%
   kable(
