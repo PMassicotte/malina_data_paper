@@ -39,7 +39,7 @@ extract_institution <- function(institution) {
 
   institution %>%
     str_split("\\(\\d*\\)") %>%
-    map(function(x){x[!x ==""]}) %>%
+    map(function(x){x[!x == ""]}) %>%
     map(str_trim) %>%
     unlist()
 }
