@@ -13,7 +13,7 @@ rm(list = ls())
 
 authors <- read_sheet("1KOnp0XAyTZYUUx7wL7TMNBP3yo4utWW--jZQsnbcMNk") %>%
   janitor::clean_names() %>%
-  arrange(lastname)
+  arrange(lastname, firstname)
 
 # Add myself and Marcel as first and last authors -------------------------
 

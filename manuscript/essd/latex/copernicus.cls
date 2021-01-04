@@ -12,11 +12,11 @@
 %% This file is part of the copernicus package for papers
 %% published by Copernicus Publications (Copernicus GmbH).
 %% 
-%%       Copyright (C) 2018 by Copernicus Publications
+%%       Copyright (C) 2020 by Copernicus Publications
 %% -----------------------------------------------------------------
 \NeedsTeXFormat{LaTeX2e}[1995/12/01]
 \ProvidesClass{copernicus}
-    [2019/05/24 8.92 Copernicus papers]
+    [2020/10/29 9.21 Copernicus papers]
 \frenchspacing
 \clubpenalty10000
 \widowpenalty10000
@@ -74,6 +74,7 @@
 \newif\if@cop@home       \IfFileExists{copernicuslogo.pdf}{\@cop@hometrue}{\@cop@homefalse}
 \newif\ifonline          \DeclareOption{online}{\onlinetrue}
 \newif\if@twostagejnl
+\newif\if@forHTML
 \newif\if@manuscript     \DeclareOption{manuscript}{\@manuscripttrue}
 \newif\if@noline         \DeclareOption{noline}{\@nolinetrue}%classical
 \DeclareOption{corrigendum}  {\def\specialp@perstring{Corrigendum}}
@@ -88,6 +89,7 @@
                                 \edef\@journalurl{\jurl@first-discuss.net}}}
 \newif\if@preface%ask Lupino
 \DeclareOption{preface}  {\@prefacetrue}
+\DeclareOption{forHTML}  {\@forHTMLtrue}
 \newif\if@corrigendum%ask Jasch
 \newif\if@editorialnotetwoc%ask Jasch
 \newif\if@editorialnoted%ask Jasch
@@ -288,15 +290,18 @@
   \@journalnameabbreviation
   \ifcopyediting\else\if@noref,\space\@msnumber\else,\space\@pvol, \@fpage\if@nolastpage\else{--\@lpage}\fi\fi, \@pyear\fi}
 \def\@journalurlInfo{%
+  %% URL raus, DOI rein; 2020-05-15
   \if@preface
-    \@journalurl\ifcopyediting\else/\preface@abbrev.pdf\fi
+    %\@journalurl\ifcopyediting\else/\preface@abbrev.pdf\fi
+    https://doi.org/10.5194/\preface@abbrev.pdf
   \else
-    \@journalurl\ifcopyediting\else/\if@noref\@msnumber\else\@pvol/\@fpage/\@pyear\fi/\fi
+    https://doi.org/10.5194/\if@noref\@msnumber\else\@journalnameshortlower-\@pvol-\@fpage-\@pyear\fi
+    %\@journalurl\ifcopyediting\else/\if@noref\@msnumber\else\@pvol/\@fpage/\@pyear\fi/\fi
   \fi}
 \def\runningheaderfont{%
   \if@stage@final%spec. obsolete ?
     \if@sansserifheader
-      \reset@font\sffamily\normalsize\color{textcol}%
+      \reset@font\sffamily\mathversion{sans}\normalsize\color{textcol}%
     \else
       \bfseries
     \fi
@@ -655,14 +660,14 @@
                     Received: \@recvd
                     \def\datesep{ -- }%
                     \if@twostagejnl\ifx\@pubdiscuss\@empty\else
-                      \datesep Discussion started: \@pubdiscuss\def\datesep{\break\def\datesep{ -- }}%
+                      \datesep Discussion started:\nobreakspace\@pubdiscuss\def\datesep{\break\def\datesep{ -- }}%
                     \fi\fi
-                    \if!\@revsd!\else\datesep Revised: \@revsd\fi
-                    \if!\@accptd!\else\datesep Accepted: \@accptd\fi
+                    \if!\@revsd!\else\datesep Revised:\nobreakspace\@revsd\fi
+                    \if!\@accptd!\else\datesep Accepted:\nobreakspace\@accptd\fi
                     \ifx\@published\@undefined\else\datesep\fi
                   \fi
                 \fi
-                \ifx\@published\@undefined\else Published: \@published\fi
+                \ifx\@published\@undefined\else Published:\nobreakspace\@published\fi
                }%
                \ifx\abstractexists\@undefined
                \else
@@ -732,18 +737,23 @@
                \ifx\specialp@perstring\@undefined
                  \if!\@recvd!
                  \else
+                   \setbox\z@\hbox\bgroup
                      \strut\hbox{Received:\nobreakspace\@recvd}%
-                   \def\datesep{ -- }%
-                   \if@twostagejnl\ifx\@pubdiscuss\@empty\else
-                     \datesep \hbox{Discussion started:\nobreakspace\@pubdiscuss}\def\datesep{\newline\def\datesep{ -- }}%
-                   \fi\fi
-                   \if!\@revsd!\else\datesep \hbox{Revised:\nobreakspace\@revsd}\fi
-                   \if!\@accptd!\else\datesep \hbox{Accepted:\nobreakspace\@accptd}\fi
-                   \ifx\@published\@undefined\else\datesep\fi
+                     \def\datesep{ -- }%
+                     \if@twostagejnl\ifx\@pubdiscuss\@empty\else
+                         \datesep \hbox{Discussion started:\nobreakspace\@pubdiscuss}\def\datesep{\newline\def\datesep{ -- }}%
+                       \fi
+                     \fi
+                     \if!\@revsd!\else\datesep \hbox{Revised:\nobreakspace\@revsd}\fi
+                     \if!\@accptd!\else\datesep \hbox{Accepted:\nobreakspace\@accptd}\fi
+                     \ifx\@published\@undefined\else\datesep\fi
+                   \egroup
+                   \unhcopy\z@
+                   \ifdim\wd\z@>100mm\strut\newline\strut\fi
                  \fi
                \fi
-               \ifx\@published\@undefined\else Published:\nobreakspace\@published\fi
-               \par\egroup
+               \ifx\@published\@undefined\else \hbox{Published:\nobreakspace\@published}\fi
+               \strut\par\egroup
                \ifx\@howtocite\@empty\else\item[{How to cite:}]\@howtocite\fi
                \ifx\abstractexists\@undefined
                \else
@@ -790,10 +800,10 @@
                Received: \@recvd
                \def\datesep{ -- }%
                \if@twostagejnl\ifx\@pubdiscuss\@empty\else
-                 \datesep Discussion started: \@pubdiscuss\def\datesep{\newline\def\datesep{ -- }}%
+                 \datesep Discussion started:\nobreakspace\@pubdiscuss\def\datesep{\newline\def\datesep{ -- }}%
                \fi\fi
-               \if!\@revsd!\else\datesep Revised: \@revsd\fi
-               \if!\@accptd!\else\datesep Accepted: \@accptd\fi
+               \if!\@revsd!\else\datesep Revised:\nobreakspace\@revsd\fi
+               \if!\@accptd!\else\datesep Accepted:\nobreakspace\@accptd\fi
                \ifx\@published\@undefined\else\datesep\fi
              \fi
            \fi
@@ -836,7 +846,7 @@
         \fi
         \\
         \ifx\specialp@perstring\@undefined
-          Published: \@published
+          Published:\nobreakspace\@published
         \else
            \if@noref\else\doi{10.5194/\@msnumber-editorial-note}\fi
         \fi
@@ -874,8 +884,8 @@
       \@author\\[3mm]
     \fi
     \if@cop@home
-      {\small Received: \@recvd\ -- Accepted: \@accptd\ -- Published: \@published\\*[2mm]
-       \if@noauthor\else Correspondence: \@corresp\fi\\*[2mm]
+      {\small Received:\nobreakspace\@recvd\ -- Accepted:\nobreakspace\@accptd\ -- Published:\nobreakspace\@published\\*[2mm]
+       \if@noauthor\else Correspondence:\nobreakspace\@corresp\fi\\*[2mm]
        \@sentence}
     \else
       \if@noauthor\else
@@ -1118,6 +1128,12 @@
   \def\fnum@figure{\rmfamily\bfseries\figurename\nobreakspace\thefigure}
   \def\fnum@table{\rmfamily\bfseries\tablename\nobreakspace\thetable}
 \fi
+\def\mytextcircled#1{%
+  \textcircled{\ifx\in@caption\relax
+    \check@mathfonts\fontsize\ssf@size\z@\math@fontsfalse\selectfont\kern-1\p@
+  \else
+    \check@mathfonts\fontsize\sf@size\z@\math@fontsfalse\selectfont
+  \fi #1}}
 \long\def\@makecaption#1#2{%
   \def\@tempa{figure}\ifx\@captype\@tempa
     \if@stage@final
@@ -1126,7 +1142,7 @@
       \vskip\abovecaptionskip\goodbreak
     \fi
   \fi
-  {\reset@font\small{\bfseries#1.} #2\par}%
+  {\let\in@caption\relax\reset@font\small{\bfseries#1.} #2\par}%
   \if@cop@home\ifonline\ifnum\csname c@\@captype\endcsname=1 % for 1st fig or tab only
     \immediate\write\@auxout{\string\gdef\string\@num\@captype{}}%
     \hypertarget{\@captype}{}%
@@ -1164,19 +1180,24 @@
 \RequirePackage[normalem]{ulem}%
 \RequirePackage[T1]{fontenc}
 \RequirePackage{textcomp}
+\if@cop@home
+  \RequirePackage{fontawesome5}
+  \RequirePackage{fontawesome}
+\fi
 \ifx\xmltexversion\@undefined
   \RequirePackage[utf8]{inputenc}
-  \DeclareUnicodeCharacter{0394}{$\Delta$}
-  \DeclareUnicodeCharacter{8710}{$\Delta$}
-  \DeclareUnicodeCharacter{0331}{\cmrng}
-  \DeclareUnicodeCharacter{014B}{\cmrng}
-  \DeclareUnicodeCharacter{2032}{\ifmmode{{\prime}}\else\textquotesingle\fi}
+  \def\strip@x#1x#2\@nil{#1}%
+  \IfFileExists{ucharacters.sty}{%
+    \def\DefineCharacter##1##2##3{\expandafter\def\expandafter\@argii\expandafter{\strip@x##2x\@nil}\DeclareUnicodeCharacter{\@argii}{##3}}%
+    \usepackage{ucharacters}%
+  }{}%
 \fi
 \def\cmrng{{\fontfamily{cmr}\selectfont\ng}}
 \let\old@classoptionslist\@classoptionslist
 \edef\@classoptionslist{english,\old@classoptionslist}
 \RequirePackage{babel}
 \let\@classoptionslist\old@classoptionslist
+\ifx\StandardLayout\@undefined\let\StandardLayout\relax\fi
 \def\@tempa{french}\ifx\bbl@main@language\@tempa
   \StandardLayout
   %% Switch to quotation marks with additional horizontal spacing
@@ -1362,9 +1383,19 @@
 \newcommand\AB@authors{}
 \newcommand\AB@empty{}
 \xdef\AB@author{\noexpand\AB@blk@and\@author}
+\def\true{true}%
+\newcounter{authnum}
+\global\let\@@deceased\relax
+\global\let\@@econtrib\relax
+
 \renewcommand\author[2][]%
       {\ifnewaffil\addtocounter{affil}{1}%
        \xdef\AB@thenote{\arabic{affil}}\fi
+       \global\advance\c@authnum\@ne
+       \if@cop@home
+         \expandafter\ifx\csname deceased@\the\c@authnum\endcsname\true\relax\def\@@deceased{$^{,\text{\faCross}}$}\fi
+         \expandafter\ifx\csname econtrib@\the\c@authnum\endcsname\true\relax\def\@@econtrib{$^{,\text{\faStar}}$}\fi
+       \fi
        \def\@tempa{#1}\ifx\@tempa\@empty\def\AB@note{\AB@thenote}\else\def\AB@note{#1}%
         \setcounter{Maxaffil}{0}\fi
       \ifnum\value{authors}>1\relax
@@ -1390,13 +1421,15 @@
          \let\\=\authorcr
          \protected@xdef\AB@authlist{\the\@temptokena
            \protect\@nameuse{@sep\number\c@authors}%
-           \protect\Authfont#2\AB@authnote{\AB@note}}%
+           \protect\Authfont#2\AB@authnote{\AB@note}%
+           \@@econtrib
+           \@@deceased}%
       \endgroup
       \ifnum\value{authors}>2\relax
         \expandafter\gdef\csname @sep\number\c@authors\endcsname{\Authands}%
       \fi
       \newaffilfalse
-}
+\global\let\@@deceased\relax\global\let\@@econtrib\relax}
 \newcommand\authorcr{\protect\\ \protect\Authfont \protect\AB@setsep}%
 \newcommand\affil[2][]%
    {\newaffiltrue\let\AB@blk@and\AB@pand
@@ -1419,6 +1452,7 @@
 }
 \def\@author{}
 \renewcommand\@author{%
+  \let\no@par\relax
   \ifx\AB@affillist\AB@empty\AB@author\else
     \ifnum\value{affil}>\value{Maxaffil}%
       \AB@authlist\\[\affilsep]\AB@affillist
@@ -1426,6 +1460,34 @@
       \AB@authors
     \fi
   \fi}
+
+\def\deceased@sep#1,#2\@nil{%
+  \immediate\write\@auxout{\string\expandafter\string\gdef\string\csname\space deceased@#1\endcsname{true}}%
+  \if!#2!\else\deceased@sep#2\@nil\fi}
+\def\econtrib@sep#1,#2\@nil{%
+  \immediate\write\@auxout{\string\expandafter\string\gdef\string\csname\space econtrib@#1\endcsname{true}}%
+  \if!#2!\else\econtrib@sep#2\@nil\fi}
+
+\newcommand\deceased[2][]{\gdef\@deceasedtext{#1}\@deceased{#2}}
+\if@cop@home
+\def\@deceased#1{%
+  \ifx\@deceasedtext\@empty\gdef\@deceasedNote{deceased}\else\gdef\@deceasedNote{deceased, \@deceasedtext}\fi
+   \deceased@sep#1,\@nil
+   \@temptokena=\expandafter{\AB@affillist}%
+   \protected@xdef\AB@affillist{\the\@temptokena \AB@affilsep
+     \AB@affilnote{\faCross}\protect\Affilfont\@deceasedNote}%
+  }
+\newcommand\equalcontrib[1]{%
+  \gdef\@econtribNote{These authors contributed equally to this work.}%
+  \econtrib@sep#1,\@nil
+   \@temptokena=\expandafter{\AB@affillist}%
+   \protected@xdef\AB@affillist{\the\@temptokena \AB@affilsep
+     \AB@affilnote{\faStar}\protect\Affilfont\@econtribNote}%
+ }
+\else
+  \let\equalcontrib\@gobble
+  \let\@deceased\@gobble
+\fi
 \def\Author{\@ifnextchar[\@Author{\@Author[]}}%]
 \def\@Author[#1]{%
   \def\@tempa{#1}%
@@ -1644,9 +1706,10 @@
 \let\c@org@fig\c@figure
 \let\@orgfigurename\figurename
 \def\setfigures{\global\let\c@figure\c@org@fig\global\let\figurename\@orgfigurename}
-\@definecounter{scheme}
+\@definecounter{figscheme}
 \def\schemename{Scheme}
-\def\setschemes{\global\let\c@figure\c@scheme\global\let\figurename\schemename}
+\let\figschemename\schemename
+\def\setschemes{\global\let\c@figure\c@figscheme\global\let\figurename\figschemename}
 \@definecounter{plates}
 \def\platesname{Plate}
 \def\setplates{\global\let\c@figure\c@plates\global\let\figurename\platesname}
@@ -1677,13 +1740,14 @@
   {\CopernicusWarningNoLine{Cannot find subfloat.sty; proceeding without it}}
 \RequirePackage[authoryear,round]{natbib}
 \def\NAT@sort{0}\def\NAT@cmprs{0}
-\renewcommand\NAT@sep{;} \renewcommand\NAT@cmt{, }
-\renewcommand\NAT@aysep{,} \renewcommand\NAT@yrsep{, }
+\bibstyle{copernicus}
 \setlength\bibsep\z@
 \let\bibfont\small
-\NAT@numbersfalse
-\NAT@set@cites
-\let\NAT@set@cites\relax
+\renewcommand\bibitem{\@ifnextchar[{\@lbibitem}{\@lbibitem[??(????)]}}%]
+\ifx\xmltexversion\@undefined\else
+  \NAT@set@cites
+  \let\NAT@set@cites\relax
+\fi
 \AtBeginDocument{\let\@citex\NAT@citex}
 \newcommand\urlprefix{}
 \renewenvironment{thebibliography}[1]
@@ -1797,10 +1861,15 @@
     \provide@orig@symbol{Phi}
     \provide@orig@symbol{Psi}
     \provide@orig@symbol{Omega}
+    %% Fix fuer #6924, vgl https://tex.stackexchange.com/questions/561236/setmathalphabet-messes-with-rm
+    \usepackage{etoolbox}%
+    \patchcmd\document@select@group{#1{#4}}{\expandafter#1\ifx\math@bgroup\bgroup{#4}\else#4\fi}{}{\fail}%
     \RequirePackage[mtbold]{mathtime}
     \DeclareSymbolFont{largesymbolsA}{U}{esint}{m}{n}%from esint.sty
     \DeclareMathSymbol{\oiintop}{\mathop}{largesymbolsA}{'015}%from esint.sty
     \def\oiint{\oiintop\nolimits}%from esint.sty
+    \DeclareMathSymbol{\fintop}{\mathop}{largesymbolsA}{'037}%from esint.sty
+    \def\fint{\fintop\nolimits}%from esint.sty
     \ifx\xmltexversion\@undefined\else{\catcode`\_=\active\global\let_\xmltexUndersc@re}\fi
     \if@sansserifface
       \DeclareMathVersion{sans}
@@ -2322,8 +2391,8 @@
   % \setbox\longtwo@box\hbox{\supplement{#1}.}%
   \begin{trivlist}%
   \if@stage@final
-    \let\\\@centercr\@rightskip\z@\@plus\tw@ em
-    \rightskip\@rightskip
+    \let\\\@centercr%\@rightskip\z@\@plus\tw@ em
+    %\rightskip\@rightskip
     \parindent\z@
   \fi
   \let\do@skip\relax
@@ -2534,6 +2603,43 @@
   \edef\@journalnameshort{\@journalnameshort D}
   \edef\@journalnameshortlower{\@journalnameshortlower d}
 \fi
+\def\Etal#1{#1}
+\def\Issue#1{#1}
+\def\Particle#1{#1}
+\def\Link#1{#1}
+\def\Year#1{#1}
+\def\Lpage#1{#1}
+\def\Fpage#1{#1}
+\def\Volume#1{#1}
+\def\Source#1{#1}
+\def\Articletitle#1{#1}
+\def\Givennames#1{#1}
+\def\Surname#1{#1}
+\def\FirstName#1{#1}
+\def\Stringname#1{#1}
+\def\Persongroup#1{#1}
+\def\Journal#1{#1}
+\def\Uri#1{#1}
+\def\Content#1{#1}
+\def\Book#1{#1}
+\def\PublisherName#1{#1}
+\def\PublisherLoc#1{#1}
+\def\mathring{\mathaccent6}
+
+\newenvironment{plainlist}
+{\advance\@itemdepth\@ne
+  \expandafter
+  \list{}
+  {\leftmargin\z@
+   \labelwidth\z@
+   \labelsep\z@
+   \itemsep\z@
+   \topsep1\baselineskip
+   \parsep\p@\partopsep\z@
+   \def\makelabel##1{\hss##1\if!##1!\else\enskip\fi}}%
+}
+{\endlist}
+
 \endinput
 %%
 %% End of file `copernicus.cls'.
