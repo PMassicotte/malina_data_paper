@@ -1,78 +1,258 @@
-# <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
-# AUTHOR:       Daniel Vaulot
-#
-# DESCRIPTION:  Phytoplankton diversity
-# <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+# Figure on pico and nano-eukaryotesaryotes
 
 rm(list = ls())
 
-# Function to draw treemaps -----------------------------
+source("R/interpolate_fun.R")
 
-long_treemap <- function(df, group1, group2, title, colors = NULL) {
-  df <- df %>%
-    count({{ group1 }}, {{ group2 }})
 
-  gg <- ggplot(df, aes(
-    area = n,
-    fill = {{ group2 }},
-    label = {{ group2 }},
-    subgroup = {{ group1 }}
+# Cytometry (abundance) ---------------------------------------------------
+
+df <- read_excel("data/raw/MALINA flow cytometry 2020 with metadata.xlsx") %>% # DV
+  # mutate(date = as.Date(date, "%d-%b-%y")) %>%  #DV
+  select(station, cast = ctd, depth, pico_ml, nano_ml, latitude, longitude) %>% # DV
+  filter(depth <= 100) %>%
+  filter(station != 345) %>%
+  drop_na(pico_ml, nano_ml) # DV
+
+df
+
+# Get data for which we have a station number
+
+df <- df %>%
+  filter(str_detect(station, "^\\d{3}$")) %>%
+  type_convert() %>%
+  mutate(transect = floor(station / 100) * 100) # DV
+
+df
+
+cyto <- df %>%
+  filter(transect %in% c(300, 600)) %>%
+  filter(station %in% c(300:390, 600:690)) # DV to remove the MacKenzie surface stations
+
+# We have 1 "duplicate". I will average the data.
+cyto %>%
+  count(station, depth, sort = TRUE)
+
+cyto %>%
+  ggplot(aes(x = latitude, y = depth)) +
+  geom_point() +
+  scale_y_reverse() +
+  facet_wrap(~transect, scales = "free_x")
+
+cyto <- cyto %>%
+  group_by(station, cast, depth) %>%
+  summarise(across(everything(), mean), n = n()) %>%
+  ungroup() %>%
+  mutate(transect = factor(transect, c("600", "300")))
+
+# ---------------
+# Pico-eukaryotes
+# ---------------
+
+# Interpolation -----------------------------------------------------------
+
+res_pico <- cyto %>%
+  group_nest(transect) %>%
+  mutate(interpolated_pico_ml = map(
+    data,
+    interpolate_2d,
+    x = latitude,
+    y = depth,
+    z = pico_ml,
+    n = 1,
+    m = 1,
+    h = 5
+  ))
+
+res_pico
+
+# Plot --------------------------------------------------------------------
+
+station_labels <- res_pico %>%
+  unnest(data) %>%
+  group_by(transect) %>%
+  ungroup() %>%
+  distinct(station, .keep_all = TRUE) %>%
+  select(station, transect, latitude)
+
+lab <- c(
+  "600" = "Transect 600",
+  "300" = "Transect 300"
+)
+
+p_pico <- res_pico %>%
+  unnest(interpolated_pico_ml) %>% # DV
+  select(-data) %>%
+  drop_na(z) %>%
+  mutate(z = ifelse(z < 0, 0, z)) %>%
+  ggplot(aes(
+    x = x,
+    y = y,
+    z = z,
+    fill = z
   )) +
-    ggtitle(title) +
-    geom_treemap() +
-    geom_treemap_subgroup_border(colour = "white") +
-    geom_treemap_text(
-      colour = "yellow",
-      place = "topleft",
-      reflow = TRUE,
-      padding.x = grid::unit(1, "mm"),
-      padding.y = grid::unit(1, "mm")
-    ) +
-    geom_treemap_subgroup_text(
-      place = "centre",
-      grow = TRUE,
-      alpha = 0.5,
-      colour = "white",
-      fontface = "italic",
-      min.size = 5
-    ) +
-    theme(
-      legend.position = "none",
-      plot.title = element_text(size = 8, face = "bold"),
-      panel.border = element_blank(),
-      panel.grid = element_blank()
-    )
-  if (is.null(colors)) {
-    #    gg <- gg + scale_fill_viridis_d()
-    gg <-
-      gg + paletteer::scale_fill_paletteer_d("ggsci::default_igv")
-  } else {
-    gg <- gg + scale_fill_manual(values = colors)
-  }
+  geom_isobands(color = NA, breaks = seq(0, 5000, by = 100)) + # DV
+  geom_text(
+    data = station_labels,
+    aes(x = latitude, y = 0, label = station),
+    inherit.aes = FALSE,
+    size = 1.5,
+    angle = 45,
+    hjust = -0.1,
+    color = "gray50"
+  ) +
+  geom_point(
+    data = unnest(res_pico, data),
+    aes(x = latitude, y = depth),
+    size = 0.05,
+    color = "gray50",
+    inherit.aes = FALSE
+  ) +
+  facet_wrap(~transect, scales = "free_x", labeller = labeller(transect = lab)) +
+  scale_y_reverse(expand = expansion(mult = c(0.01, 0.15))) +
+  scale_x_continuous(
+    expand = expansion(mult = c(0.01, 0.05)),
+    breaks = scales::breaks_pretty(n = 4)
+  ) +
+  paletteer::scale_fill_paletteer_c(
+    "oompaBase::jetColors",
+    breaks = scales::breaks_width(width = 1000),
+    labels = scales::label_number(), # DV
+    guide =
+      guide_colorbar(
+        barwidth = unit(8, "cm"),
+        barheight = unit(0.2, "cm"),
+        direction = "horizontal",
+        title.position = "top",
+        title.hjust = 0.5
+      )
+  ) +
+  labs(
+    x = "Latitude",
+    y = "Depth (m)",
+    fill = bquote("Pico-eukaryotes" ~ ("cells" ~ "mL"^{-1}))
+  ) +
+  theme(
+    panel.grid = element_blank(),
+    strip.background = element_blank(),
+    strip.text = element_text(hjust = 0, size = 10, face = "bold"),
+    panel.border = element_blank(),
+    axis.ticks = element_blank(),
+    legend.position = "bottom",
+    legend.margin = margin(r = 2),
+    legend.text = element_text(size = 6),
+    legend.title = element_text(size = 8)
+  )
 
-  return(gg)
-}
+p_pico
 
-# Plot treemaps for cultures -----------------------------
+# ---------------
+# Nano-eukaryotes
+# ---------------
 
-df <- read_excel("data/raw/MALINA cultures 2020.xlsx")
-g_cult <- long_treemap(df, class, species, "Cultures")
+# Interpolation -----------------------------------------------------------
 
-g_cult
+res_nano <- cyto %>%
+  group_nest(transect) %>%
+  mutate(interpolated_nano_ml = map(
+    data,
+    interpolate_2d,
+    x = latitude,
+    y = depth,
+    z = nano_ml,
+    n = 1,
+    m = 1,
+    h = 5
+  ))
 
-# Plot treemaps for clone libraries -----------------------------
+res_nano
 
-df <- read_excel("data/raw/MALINA sequences 2020.xlsx")
-g_seq <- long_treemap(df, class, species, "Clone libraries")
+# Plot --------------------------------------------------------------------
 
-g_seq
+station_labels <- res_nano %>%
+  unnest(data) %>%
+  group_by(transect) %>%
+  ungroup() %>%
+  distinct(station, .keep_all = TRUE) %>%
+  select(station, transect, latitude)
+
+lab <- c(
+  "600" = "Transect 600",
+  "300" = "Transect 300"
+)
+
+p_nano <- res_nano %>%
+  unnest(interpolated_nano_ml) %>% # DV
+  select(-data) %>%
+  drop_na(z) %>%
+  mutate(z = ifelse(z < 0, 0, z)) %>%
+  ggplot(aes(
+    x = x,
+    y = y,
+    z = z,
+    fill = z
+  )) +
+  geom_isobands(color = NA, breaks = seq(0, 5000, by = 100)) + # DV
+  geom_text(
+    data = station_labels,
+    aes(x = latitude, y = 0, label = station),
+    inherit.aes = FALSE,
+    size = 1.5,
+    angle = 45,
+    hjust = -0.1,
+    color = "gray50"
+  ) +
+  geom_point(
+    data = unnest(res_nano, data),
+    aes(x = latitude, y = depth),
+    size = 0.05,
+    color = "gray50",
+    inherit.aes = FALSE
+  ) +
+  facet_wrap(~transect, scales = "free_x", labeller = labeller(transect = lab)) +
+  scale_y_reverse(expand = expansion(mult = c(0.01, 0.15))) +
+  scale_x_continuous(
+    expand = expansion(mult = c(0.01, 0.05)),
+    breaks = scales::breaks_pretty(n = 4)
+  ) +
+  paletteer::scale_fill_paletteer_c(
+    "oompaBase::jetColors",
+    breaks = scales::breaks_width(width = 1000),
+    labels = scales::label_number(), # DV
+    guide =
+      guide_colorbar(
+        barwidth = unit(8, "cm"),
+        barheight = unit(0.2, "cm"),
+        direction = "horizontal",
+        title.position = "top",
+        title.hjust = 0.5
+      )
+  ) +
+  labs(
+    x = "Latitude",
+    y = "Depth (m)",
+    fill = bquote("Nano-eukaryotes" ~ ("cells" ~ "mL"^{-1}))
+  ) +
+  theme(
+    panel.grid = element_blank(),
+    strip.background = element_blank(),
+    strip.text = element_text(hjust = 0, size = 10, face = "bold"),
+    panel.border = element_blank(),
+    axis.ticks = element_blank(),
+    legend.position = "bottom",
+    legend.margin = margin(r = 2),
+    legend.text = element_text(size = 6),
+    legend.title = element_text(size = 8)
+  )
+
+p_nano
 
 # Save --------------------------------------------------------------------
 
-p <- g_seq + g_cult +
-  plot_layout(ncol = 1) +
+p <- (p_pico / p_nano) +
   plot_annotation(tag_levels = "A") &
   theme(plot.tag = element_text(face = "bold"))
+
 
 ggsave(
   "graphs/fig11.pdf",

@@ -1,140 +1,164 @@
+# <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+# AUTHOR:       Philippe Massicotte
+#
+# DESCRIPTION:  Figure to show sea ice concentration during the mission and the
+# 200 meters isobath.
+# <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
+
 rm(list = ls())
 
+# Geotiff
+# https://wvs.earthdata.nasa.gov/?LAYERS=MODIS_Terra_CorrectedReflectance_TrueColor&CRS=EPSG:4326&TIME=2009-08-21&COORDINATES=68.000000,-141.000000,72.500000,-125.000000&FORMAT=image/tiff&AUTOSCALE=TRUE&RESOLUTION=250m
 
-# Water flow --------------------------------------------------------------
+# Isobath 200 m
+# http://www.naturalearthdata.com/downloads/10m-physical-vectors/
 
-# Discharge data
-# https://wateroffice.ec.gc.ca/search/historical_e.html
-# https://wateroffice.ec.gc.ca/report/historical_e.html?stn=10LC014&dataType=Daily&parameterType=Flow&year=2009&mode=Table&y1Max=1&y1Min=1
 
-water_flow <- fread("data/raw/Daily__Sep-6-2019_05_08_04PM.csv") %>%
-  as_tibble() %>%
-  janitor::clean_names() %>%
-  filter(param == 1) %>%
-  mutate(date = lubridate::ymd(date))
+# Stations ----------------------------------------------------------------
 
-range(water_flow$date)
+station <- read_csv("data/clean/stations.csv") %>%
+  distinct(station, .keep_all = TRUE) %>%
+  dplyr::select(station, longitude, latitude, transect)
 
-water_flow_1972_2016 <- water_flow %>%
-  group_by(yday = lubridate::yday(date)) %>%
-  filter(yday <= 365) %>%
-  summarise(mean_value = mean(value)) %>%
-  mutate(date = as.Date(glue("2009-{yday}"), "%Y-%j"))
+# bbox used to crop
+bb <- st_bbox(c(
+  xmin = -150,
+  xmax = -120,
+  ymin = 68,
+  ymax = 75
+), crs = 4326)
 
-water_flow_2009 <- water_flow %>%
-  filter(lubridate::year(date) == 2009)
+bb
 
-# Extract water discharge during the Malina cruise
-shiptrack <- read_csv("data/clean/shiptrack.csv")
-range(shiptrack$date)
-water_flow_malina <- water_flow %>%
-  filter(between(date, min(shiptrack$date), max(shiptrack$date)))
 
-# lab <- water_flow_malina %>%
-#   filter(date == min(date) | date == max(date))
+# MODIS true color --------------------------------------------------------
 
-p1 <- water_flow_2009 %>%
-  ggplot(aes(x = date, y = value)) +
-  geom_area(
-    data = water_flow_1972_2016,
-    aes(x = date, y = mean_value),
-    fill = "#3c3c3c",
-    alpha = 0.25
-  ) +
-  geom_line(size = 0.5, color = "black") +
-  geom_line(
-    data = water_flow_malina,
-    color = "#CA3E47",
-    size = 0.75,
-    lineend = "round"
-  ) +
-  scale_x_date(
-    expand = expansion(mult = c(0.1, 0.1)),
-    date_breaks = "2 months",
-    date_labels = "%b %Y"
-  ) +
-  scale_y_continuous(
-    breaks = scales::breaks_pretty(n = 6),
-    labels = scales::label_number_si()
-  ) +
-  xlab(NULL) +
-  ylab(bquote("Daily discharge" ~ (m^3 ~ s^{
-    -1
-  }))) +
-  paletteer::scale_colour_paletteer_d("ggsci::default_nejm") +
-  theme(
-    legend.key.size = unit(0.5, "cm"),
-    legend.position = "none",
-    panel.border = element_blank(),
-    axis.ticks = element_blank(),
-    panel.grid = element_line(size = 0.25),
-    panel.grid.major.x = element_blank(),
-    panel.grid.minor.x = element_blank()
+r <- read_stars(here::here("data/raw/ice_cover/snapshot-2009-08-21.tiff")) %>%
+  st_crop(bb)
+
+# 200 meters isobath ------------------------------------------------------
+
+isobath_200m <- st_read(here::here("data/raw/ice_cover/ne_10m_bathymetry_K_200/ne_10m_bathymetry_K_200.shp"))
+
+# Land --------------------------------------------------------------------
+
+ne_land <-
+  rnaturalearth::ne_download(
+    category = "physical",
+    type = "land",
+    returnclass = "sf",
+    scale = "large"
   )
 
+# MODIS true color plot ---------------------------------------------------
 
-# Air temperature ---------------------------------------------------------
-
-air_temperature <- vroom::vroom("data/raw/csv/procmet.csv") %>%
-  mutate(date = lubridate::make_datetime(year, month, day, hour, min, sec)) %>%
-  filter(between(date, "2009-07-30", "2009-08-25")) %>%
-  drop_na(t_hmp_avg)
-
-air_temperature
-
-# Hourly average
-air_temperature_average <- air_temperature %>%
-  mutate(date_hour = lubridate::floor_date(date, unit = "hour")) %>%
-  group_by(date_hour) %>%
-  summarise(mean_t_hmp_avg = mean(t_hmp_avg, na.rm = TRUE))
-
-range(air_temperature_average$mean_t_hmp_avg)
-mean(air_temperature_average$mean_t_hmp_avg)
-sd(air_temperature_average$mean_t_hmp_avg)
-
-p2 <- air_temperature_average %>%
-  ggplot(aes(x = date_hour, y = mean_t_hmp_avg)) +
-  geom_line(size = 0.3, color = "#3c3c3c") +
-  scale_x_datetime(
-    date_breaks = "3 days",
-    date_labels = "%b %d"
-  ) +
-  scale_y_continuous(breaks = scales::breaks_pretty(n = 6)) +
-  geom_hline(yintercept = 0, color = "red", lty = 2, size = 0.25) +
-  labs(
-    x = NULL,
-    y = "Air temperature (°C)"
-  ) +
+p1 <-
+  ggplot() +
+  ggspatial::layer_spatial(data = r) +
+  geom_sf(data = isobath_200m, fill = NA, color = "red") +
+  geom_point(data = station, aes(
+    x = longitude,
+    y = latitude,
+    color = factor(transect)
+  ), show.legend = FALSE) +
+  paletteer::scale_color_paletteer_d("ggsci::default_nejm") +
+  coord_sf(xlim = c(-141, -125), ylim = c(68.5, 72.5)) +
+  scale_x_continuous(expand = c(0, 0)) +
+  scale_y_continuous(expand = c(0, 0)) +
+  facet_wrap(~"2009-08-21") +
   theme(
-    legend.key.size = unit(0.5, "cm"),
-    legend.position = "none",
-    panel.border = element_blank(),
+    strip.text = element_text(hjust = 0, size = 10, face = "bold"),
+    strip.background = element_blank(),
     axis.ticks = element_blank(),
-    panel.grid = element_line(size = 0.25),
-    panel.grid.major.x = element_blank(),
-    panel.grid.minor.x = element_blank()
+    axis.title = element_blank()
   )
+
+# Sea ice concentration ---------------------------------------------------
+
+# ftp://sidads.colorado.edu/pub/DATASETS/NOAA/G10033/north/weekly/shapefile/
+
+files <- fs::dir_ls("data/raw/ice_cover/sic/", recurse = TRUE, glob = "*.shp")
+
+sic <- map(files, st_read) %>%
+  set_names(files) %>%
+  do.call(what = sf:::rbind.sf, .) %>%
+  rownames_to_column(var = "date") %>%
+  mutate(date = str_match(date, "\\d{8}")) %>%
+  mutate(date = as.Date(date, format = "%Y%m%d"))
+
+sic
+
+bb_stereo <- isobath_200m %>%
+  st_crop(bb) %>%
+  st_transform(crs = st_crs(sic))
+
+sic <- sic %>%
+  st_crop(bb_stereo) %>%
+  st_transform(crs = 4326)
+
+sic
+
+sic %>%
+  count(tc_mid)
+
+# Plot --------------------------------------------------------------------
+
+p2 <- sic %>%
+  ggplot() +
+  geom_sf(data = ne_land, size = 0.15, fill = "gray75") +
+  geom_sf(aes(fill = tc_mid / 100), color = NA) +
+  geom_sf(data = isobath_200m, fill = NA, color = "red") +
+  geom_point(data = station, aes(
+    x = longitude,
+    y = latitude,
+    color = factor(transect)
+  ),
+  show.legend = FALSE,
+  size = 0.5) +
+  paletteer::scale_color_paletteer_d("ggsci::default_nejm") +
+  scale_fill_gradient(
+    low = "#063F6F",
+    high = "white",
+    breaks = c(0, 0.25, 0.50, 0.75, 1),
+    labels = scales::label_percent(),
+    guide = guide_legend(
+      label.position = "top",
+      title.position = "top",
+      title = "Sea ice concentration",
+      title.theme = element_text(hjust = 0.5),
+      keywidth = unit(1, "cm"),
+      keyheight = unit(0.25, "cm"),
+      override.aes = list(color = "#3c3c3c", size = 0.1)
+    )
+  ) +
+  coord_sf(xlim = c(-141, -125), ylim = c(68.5, 72.5)) +
+  facet_wrap(~date) +
+  theme(
+    panel.grid = element_blank(),
+    panel.background = element_rect(fill = "#063F6F"),
+    legend.position = "bottom",
+    legend.margin = margin(t = -30),
+    strip.text = element_text(hjust = 0, size = 10, face = "bold"),
+    strip.background = element_blank(),
+    axis.ticks = element_blank(),
+    axis.title = element_blank()
+  )
+
+p2
 
 # Combine plots -----------------------------------------------------------
 
-p <- p1 + p2 +
-  plot_layout(ncol = 1) +
-  plot_annotation(tag_levels = "A") &
+p <- p1 / p2 +
+  plot_annotation(
+    tag_levels = "A"
+  ) &
   theme(plot.tag = element_text(face = "bold"))
 
 ggsave(
-  "graphs/fig02.pdf",
+  here::here("graphs/fig02.pdf"),
   device = cairo_pdf,
-  width = 17.5,
-  height = 17.5 / 1.25,
-  units = "cm"
+  width = 10,
+  height = 10
 )
 
-# Stats for the paper -----------------------------------------------------
-
-range(water_flow_1972_2016$mean_value)
-range(water_flow_malina$value)
-
-# When is the maximum discharge?
-water_flow_1972_2016 %>%
-  filter(mean_value == max(mean_value))
+knitr::plot_crop(here::here("graphs/fig02.pdf"))

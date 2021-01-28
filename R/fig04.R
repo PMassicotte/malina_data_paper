@@ -1,106 +1,58 @@
-# <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
-# AUTHOR:       Philippe Massicotte
-#
-# DESCRIPTION:
-#
-# Salinity/temperature plots.
-# <><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><><>
-
 rm(list = ls())
 
 source("R/interpolate_fun.R")
 
-ctd_rosette <- fread("data/clean/ctd.csv") %>%
-  filter(pres <= 100) %>%
-  filter(transect %in% c(600, 300)) %>%
-  as_tibble() %>%
+df <-
+  read_excel("data/raw/Data MALINA pour Philippe Massicotte.xls") %>%
+  janitor::clean_names() %>%
   select(
     station,
-    transect,
-    latitude = initial_latitude_deg,
-    longitude = initial_longitude_deg,
-    pres,
-    sal,
-    temp
+    date,
+    longitude = long_w,
+    latitude = lat_n,
+    depth = depth_m,
+    contains("percent")
   ) %>%
-  drop_na()
-
-ctd_barge <- fread("data/clean/ctd_barge.csv") %>%
-  filter(pres <= 100) %>%
-  filter(transect %in% c(600, 300)) %>%
-  as_tibble() %>%
-  select(
-    station,
-    transect,
-    latitude,
-    longitude,
-    pres,
-    sal,
-    temp
-  ) %>%
-  drop_na()
-
-# Complete the dataset with barge data
-ctd_missing <- ctd_barge %>%
-  anti_join(ctd_rosette, by = c("station", "transect"))
-
-df <- ctd_rosette %>%
-  bind_rows(ctd_missing) %>%
-  mutate(transect = factor(transect, levels = c("600", "300")))
+  mutate(transect = station %/% 100 * 100) %>%
+  filter(transect %in% c(300, 600)) %>%
+  mutate(transect = factor(transect, levels = c("600", "300"))) %>%
+  filter(depth <= 250) %>%
+  filter(station != 670)
 
 df
 
 df %>%
-  count(transect)
-
-df %>%
-  distinct(station, .keep_all = TRUE) %>%
-  ggplot(aes(x = longitude, y = latitude)) +
+  ggplot(aes(x = latitude, y = depth)) +
   geom_point() +
-  ggrepel::geom_text_repel(aes(label = station))
+  scale_y_reverse() +
+  facet_wrap(~transect, scales = "free_x")
 
-# Remove station 345
+
+# Pivot longer ------------------------------------------------------------
+
+# Pivot the dataframe and remove cdbw data since it is almost 0% contribution.
+
 df <- df %>%
-  filter(station != 345)
-
-df %>%
-  count(station, pres, sort = TRUE)
-
-# Merge stations 689 and 690 ----------------------------------------------
-
-# 689 and 690 are very close, I will merge them for the figure
-df <- df %>%
-  mutate(station = ifelse(station == 689, 690, station)) %>%
-  group_by(station, transect, pres) %>%
-  summarise(across(everything(), ~mean(.x, na.rm = TRUE))) %>%
-  ungroup() %>%
-  group_by(station) %>%
-  mutate(across(c("longitude", "latitude"), ~mean(.x, na.rm = TRUE))) %>%
-  ungroup()
+  pivot_longer(
+    contains("percent"),
+    names_to = "water_type",
+    values_to = "percent"
+  ) %>%
+  filter(!str_detect(water_type, "cdbw"))
 
 # Interpolation -----------------------------------------------------------
 
 res <- df %>%
-  group_nest(transect) %>%
-  mutate(interpolated_temperature = map(
+  group_nest(transect, water_type) %>%
+  mutate(interpolated_percent = map(
     data,
     interpolate_2d,
     x = latitude,
-    y = pres,
-    z = temp,
+    y = depth,
+    z = percent,
     n = 1,
     m = 1,
-    h = 5
-  )) %>%
-  mutate(interpolated_salinity = map(
-    data,
-    interpolate_2d,
-    x = latitude,
-    y = pres,
-    z = sal,
-    n = 1,
-    m = 1,
-    h = 5
+    h = 4
   ))
 
 station_labels <- res %>%
@@ -110,78 +62,48 @@ station_labels <- res %>%
   distinct(station, .keep_all = TRUE) %>%
   select(station, transect, latitude)
 
+# Plot --------------------------------------------------------------------
+
+unique(df$water_type)
+
 lab <- c(
+  "mw_percent" = "Mackenzie\nriver",
+  "sim_percent" = "Sea-ice\nmeltwater",
+  "pml_percent" = "Winter polar\nmixed water",
+  "uhl_percent" = "Upper halocline water\n(Pacific water)",
+  "lhl_percent" = "Lower halocline water\n(Atlantic water)"
+)
+
+facet_lab <- c(
   "600" = "Transect 600",
   "300" = "Transect 300"
 )
 
-# Temperature -------------------------------------------------------------
-
-p1 <- res %>%
-  unnest(interpolated_temperature) %>%
-  select(transect, x, y, z) %>%
+p <- res %>%
+  select(-data) %>%
+  unnest(interpolated_percent) %>%
   drop_na(z) %>%
-  ggplot(aes(x = x, y = y, z = z, fill = z)) +
-  geom_isobands(color = NA, breaks = seq(-10, 10, by = 0.25)) +
-  geom_text(
-    data = station_labels,
-    aes(x = latitude, y = 0, label = station),
-    inherit.aes = FALSE,
-    size = 1.5,
-    angle = 45,
-    hjust = -0.1,
-    color = "gray50"
-  ) +
-  geom_point(
-    data = unnest(res, data),
-    aes(x = latitude, y = pres),
-    size = 0.05,
-    color = "gray50",
-    inherit.aes = FALSE
-  ) +
-  facet_wrap(~transect, scales = "free_x", labeller = labeller(transect = lab)) +
-  scale_y_reverse(expand = expansion(mult = c(0.01, 0.15))) +
-  scale_x_continuous(
-    expand = expansion(mult = c(0.01, 0.05)),
-    breaks = scales::breaks_pretty(n = 4)
-  ) +
-  paletteer::scale_fill_paletteer_c("oompaBase::jetColors",
-  breaks = scales::breaks_pretty(n = 6),
-  guide =
-    guide_colorbar(
-      barwidth = unit(8, "cm"),
-      barheight = unit(0.2, "cm"),
-      direction = "horizontal",
-      title.position = "top",
-      title.hjust = 0.5
+  mutate(z = ifelse(z < 0, 0, z)) %>%
+  mutate(z = ifelse(z > 100, 100, z)) %>%
+  mutate(water_type2 = case_when(
+    water_type == "sim_percent" ~ "Sea-ice\nmeltwater",
+    water_type == "mw_percent" ~ "Mackenzie\nriver",
+    water_type == "pml_percent" ~ "Winter polar\nmixed water",
+    water_type == "uhl_percent" ~ "Upper halocline water\n(Pacific water)",
+    water_type == "lhl_percent" ~ "Lower halocline water\n(Atlantic water)"
+  )) %>%
+  mutate(water_type2 = factor(water_type2,
+    levels = c(
+      "Sea-ice\nmeltwater",
+      "Mackenzie\nriver",
+      "Winter polar\nmixed water",
+      "Upper halocline water\n(Pacific water)",
+      "Lower halocline water\n(Atlantic water)"
     )
-  ) +
-  labs(
-    x = "Latitude",
-    y = "Depth (m)",
-    fill = expression("Temperature" ~ (degree * C))
-  ) +
-  theme(
-    panel.grid = element_blank(),
-    strip.background = element_blank(),
-    strip.text = element_text(hjust = 0, size = 10, face = "bold"),
-    panel.border = element_blank(),
-    axis.ticks = element_blank(),
-    axis.title.x = element_blank(),
-    axis.text.x = element_blank(),
-    legend.position = "bottom",
-    legend.text = element_text(size = 6),
-    legend.title = element_text(size = 8)
-  )
-
-# Salinity ----------------------------------------------------------------
-
-p2 <- res %>%
-  unnest(interpolated_salinity) %>%
-  select(transect, x, y, z) %>%
-  drop_na(z) %>%
+  )) %>%
   ggplot(aes(x = x, y = y, z = z, fill = z)) +
-  geom_isobands(color = NA, breaks = seq(-10, 60, by = 0.25)) +
+  geom_raster() +
+  geom_isobands(color = NA, breaks = seq(-10, 110, by = 5)) +
   geom_text(
     data = station_labels,
     aes(x = latitude, y = 0, label = station),
@@ -193,19 +115,24 @@ p2 <- res %>%
   ) +
   geom_point(
     data = unnest(res, data),
-    aes(x = latitude, y = pres),
+    aes(x = latitude, y = depth),
     size = 0.05,
     color = "gray50",
     inherit.aes = FALSE
   ) +
-  facet_wrap(~transect, scales = "free_x", labeller = labeller(transect = lab)) +
+  facet_grid(
+    water_type2 ~ transect,
+    scales = "free_x",
+    labeller = labeller(transect = facet_lab)
+  ) +
   scale_y_reverse(expand = expansion(mult = c(0.01, 0.15))) +
   scale_x_continuous(
     expand = expansion(mult = c(0.01, 0.05)),
     breaks = scales::breaks_pretty(n = 4)
   ) +
   paletteer::scale_fill_paletteer_c("oompaBase::jetColors",
-    breaks = scales::breaks_pretty(n = 6),
+    # breaks = seq(0, 120, by = 20),
+    # limits = c(0, 100),
     guide =
       guide_colorbar(
         barwidth = unit(8, "cm"),
@@ -218,12 +145,13 @@ p2 <- res %>%
   labs(
     x = "Latitude",
     y = "Depth (m)",
-    fill = "Salinity (PSU)"
+    fill = "Fraction (%)"
   ) +
   theme(
     panel.grid = element_blank(),
     strip.background = element_blank(),
-    strip.text = element_text(hjust = 0, size = 10, face = "bold"),
+    strip.text.x = element_text(hjust = 0, size = 10, face = "bold"),
+    strip.text.y = element_text(hjust = 0.5, size = 6),
     panel.border = element_blank(),
     axis.ticks = element_blank(),
     legend.position = "bottom",
@@ -231,21 +159,10 @@ p2 <- res %>%
     legend.title = element_text(size = 8)
   )
 
-# Save plot ---------------------------------------------------------------
-
-p <- p1 + p2 +
-  plot_layout(ncol = 1) +
-  plot_annotation(tag_levels = "A") &
-  theme(plot.tag = element_text(face = "bold"))
-
-ggsave("graphs/fig04.pdf",
-  device = cairo_pdf,
+ggsave(
+  "graphs/fig04.pdf",
   width = 17.5,
-  height = 14,
+  height = 17.5,
+  device = cairo_pdf,
   units = "cm"
 )
-
-# Stats for the paper -----------------------------------------------------
-
-range(df$pres)
-range(df$temp)

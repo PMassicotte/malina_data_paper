@@ -1,168 +1,140 @@
 rm(list = ls())
 
-source("R/interpolate_fun.R")
 
-df <-
-  read_excel("data/raw/Data MALINA pour Philippe Massicotte.xls") %>%
+# Water flow --------------------------------------------------------------
+
+# Discharge data
+# https://wateroffice.ec.gc.ca/search/historical_e.html
+# https://wateroffice.ec.gc.ca/report/historical_e.html?stn=10LC014&dataType=Daily&parameterType=Flow&year=2009&mode=Table&y1Max=1&y1Min=1
+
+water_flow <- fread("data/raw/Daily__Sep-6-2019_05_08_04PM.csv") %>%
+  as_tibble() %>%
   janitor::clean_names() %>%
-  select(
-    station,
-    date,
-    longitude = long_w,
-    latitude = lat_n,
-    depth = depth_m,
-    contains("percent")
-  ) %>%
-  mutate(transect = station %/% 100 * 100) %>%
-  filter(transect %in% c(300, 600)) %>%
-  mutate(transect = factor(transect, levels = c("600", "300"))) %>%
-  filter(depth <= 250) %>%
-  filter(station != 670)
+  filter(param == 1) %>%
+  mutate(date = lubridate::ymd(date))
 
-df
+range(water_flow$date)
 
-df %>%
-  ggplot(aes(x = latitude, y = depth)) +
-  geom_point() +
-  scale_y_reverse() +
-  facet_wrap(~transect, scales = "free_x")
+water_flow_1972_2016 <- water_flow %>%
+  group_by(yday = lubridate::yday(date)) %>%
+  filter(yday <= 365) %>%
+  summarise(mean_value = mean(value)) %>%
+  mutate(date = as.Date(glue("2009-{yday}"), "%Y-%j"))
 
+water_flow_2009 <- water_flow %>%
+  filter(lubridate::year(date) == 2009)
 
-# Pivot longer ------------------------------------------------------------
+# Extract water discharge during the Malina cruise
+shiptrack <- read_csv("data/clean/shiptrack.csv")
+range(shiptrack$date)
+water_flow_malina <- water_flow %>%
+  filter(between(date, min(shiptrack$date), max(shiptrack$date)))
 
-# Pivot the dataframe and remove cdbw data since it is almost 0% contribution.
+# lab <- water_flow_malina %>%
+#   filter(date == min(date) | date == max(date))
 
-df <- df %>%
-  pivot_longer(
-    contains("percent"),
-    names_to = "water_type",
-    values_to = "percent"
-  ) %>%
-  filter(!str_detect(water_type, "cdbw"))
-
-# Interpolation -----------------------------------------------------------
-
-res <- df %>%
-  group_nest(transect, water_type) %>%
-  mutate(interpolated_percent = map(
-    data,
-    interpolate_2d,
-    x = latitude,
-    y = depth,
-    z = percent,
-    n = 1,
-    m = 1,
-    h = 4
-  ))
-
-station_labels <- res %>%
-  unnest(data) %>%
-  group_by(transect) %>%
-  ungroup() %>%
-  distinct(station, .keep_all = TRUE) %>%
-  select(station, transect, latitude)
-
-# Plot --------------------------------------------------------------------
-
-unique(df$water_type)
-
-lab <- c(
-  "mw_percent" = "Mackenzie\nriver",
-  "sim_percent" = "Sea-ice\nmeltwater",
-  "pml_percent" = "Winter polar\nmixed water",
-  "uhl_percent" = "Upper halocline water\n(Pacific water)",
-  "lhl_percent" = "Lower halocline water\n(Atlantic water)"
-)
-
-facet_lab <- c(
-  "600" = "Transect 600",
-  "300" = "Transect 300"
-)
-
-p <- res %>%
-  select(-data) %>%
-  unnest(interpolated_percent) %>%
-  drop_na(z) %>%
-  mutate(z = ifelse(z < 0, 0, z)) %>%
-  mutate(z = ifelse(z > 100, 100, z)) %>%
-  mutate(water_type2 = case_when(
-    water_type == "sim_percent" ~ "Sea-ice\nmeltwater",
-    water_type == "mw_percent" ~ "Mackenzie\nriver",
-    water_type == "pml_percent" ~ "Winter polar\nmixed water",
-    water_type == "uhl_percent" ~ "Upper halocline water\n(Pacific water)",
-    water_type == "lhl_percent" ~ "Lower halocline water\n(Atlantic water)"
-  )) %>%
-  mutate(water_type2 = factor(water_type2,
-    levels = c(
-      "Sea-ice\nmeltwater",
-      "Mackenzie\nriver",
-      "Winter polar\nmixed water",
-      "Upper halocline water\n(Pacific water)",
-      "Lower halocline water\n(Atlantic water)"
-    )
-  )) %>%
-  ggplot(aes(x = x, y = y, z = z, fill = z)) +
-  geom_raster() +
-  geom_isobands(color = NA, breaks = seq(-10, 110, by = 5)) +
-  geom_text(
-    data = station_labels,
-    aes(x = latitude, y = 0, label = station),
-    inherit.aes = FALSE,
-    size = 1.5,
-    angle = 45,
-    hjust = -0.1,
-    color = "gray50"
+p1 <- water_flow_2009 %>%
+  ggplot(aes(x = date, y = value)) +
+  geom_area(
+    data = water_flow_1972_2016,
+    aes(x = date, y = mean_value),
+    fill = "#3c3c3c",
+    alpha = 0.25
   ) +
-  geom_point(
-    data = unnest(res, data),
-    aes(x = latitude, y = depth),
-    size = 0.05,
-    color = "gray50",
-    inherit.aes = FALSE
+  geom_line(size = 0.5, color = "black") +
+  geom_line(
+    data = water_flow_malina,
+    color = "#CA3E47",
+    size = 0.75,
+    lineend = "round"
   ) +
-  facet_grid(
-    water_type2 ~ transect,
-    scales = "free_x",
-    labeller = labeller(transect = facet_lab)
+  scale_x_date(
+    expand = expansion(mult = c(0.1, 0.1)),
+    date_breaks = "2 months",
+    date_labels = "%b %Y"
   ) +
-  scale_y_reverse(expand = expansion(mult = c(0.01, 0.15))) +
-  scale_x_continuous(
-    expand = expansion(mult = c(0.01, 0.05)),
-    breaks = scales::breaks_pretty(n = 4)
+  scale_y_continuous(
+    breaks = scales::breaks_pretty(n = 6),
+    labels = scales::label_number_si()
   ) +
-  paletteer::scale_fill_paletteer_c("oompaBase::jetColors",
-    # breaks = seq(0, 120, by = 20),
-    # limits = c(0, 100),
-    guide =
-      guide_colorbar(
-        barwidth = unit(8, "cm"),
-        barheight = unit(0.2, "cm"),
-        direction = "horizontal",
-        title.position = "top",
-        title.hjust = 0.5
-      )
-  ) +
-  labs(
-    x = "Latitude",
-    y = "Depth (m)",
-    fill = "Fraction (%)"
-  ) +
+  xlab(NULL) +
+  ylab(bquote("Daily discharge" ~ (m^3 ~ s^{
+    -1
+  }))) +
+  paletteer::scale_colour_paletteer_d("ggsci::default_nejm") +
   theme(
-    panel.grid = element_blank(),
-    strip.background = element_blank(),
-    strip.text.x = element_text(hjust = 0, size = 10, face = "bold"),
-    strip.text.y = element_text(hjust = 0.5, size = 6),
+    legend.key.size = unit(0.5, "cm"),
+    legend.position = "none",
     panel.border = element_blank(),
     axis.ticks = element_blank(),
-    legend.position = "bottom",
-    legend.text = element_text(size = 6),
-    legend.title = element_text(size = 8)
+    panel.grid = element_line(size = 0.25),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank()
   )
+
+
+# Air temperature ---------------------------------------------------------
+
+air_temperature <- vroom::vroom("data/raw/csv/procmet.csv") %>%
+  mutate(date = lubridate::make_datetime(year, month, day, hour, min, sec)) %>%
+  filter(between(date, "2009-07-30", "2009-08-25")) %>%
+  drop_na(t_hmp_avg)
+
+air_temperature
+
+# Hourly average
+air_temperature_average <- air_temperature %>%
+  mutate(date_hour = lubridate::floor_date(date, unit = "hour")) %>%
+  group_by(date_hour) %>%
+  summarise(mean_t_hmp_avg = mean(t_hmp_avg, na.rm = TRUE))
+
+range(air_temperature_average$mean_t_hmp_avg)
+mean(air_temperature_average$mean_t_hmp_avg)
+sd(air_temperature_average$mean_t_hmp_avg)
+
+p2 <- air_temperature_average %>%
+  ggplot(aes(x = date_hour, y = mean_t_hmp_avg)) +
+  geom_line(size = 0.3, color = "#3c3c3c") +
+  scale_x_datetime(
+    date_breaks = "3 days",
+    date_labels = "%b %d"
+  ) +
+  scale_y_continuous(breaks = scales::breaks_pretty(n = 6)) +
+  geom_hline(yintercept = 0, color = "red", lty = 2, size = 0.25) +
+  labs(
+    x = NULL,
+    y = "Air temperature (°C)"
+  ) +
+  theme(
+    legend.key.size = unit(0.5, "cm"),
+    legend.position = "none",
+    panel.border = element_blank(),
+    axis.ticks = element_blank(),
+    panel.grid = element_line(size = 0.25),
+    panel.grid.major.x = element_blank(),
+    panel.grid.minor.x = element_blank()
+  )
+
+# Combine plots -----------------------------------------------------------
+
+p <- p1 + p2 +
+  plot_layout(ncol = 1) +
+  plot_annotation(tag_levels = "A") &
+  theme(plot.tag = element_text(face = "bold"))
 
 ggsave(
   "graphs/fig03.pdf",
-  width = 17.5,
-  height = 17.5,
   device = cairo_pdf,
+  width = 17.5,
+  height = 17.5 / 1.25,
   units = "cm"
 )
+
+# Stats for the paper -----------------------------------------------------
+
+range(water_flow_1972_2016$mean_value)
+range(water_flow_malina$value)
+
+# When is the maximum discharge?
+water_flow_1972_2016 %>%
+  filter(mean_value == max(mean_value))

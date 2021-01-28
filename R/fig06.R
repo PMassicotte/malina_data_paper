@@ -1,276 +1,375 @@
 rm(list = ls())
 
+source("R/interpolate_fun.R")
 
-# Dissolved absorption ----------------------------------------------------
-
-df <- read_csv("data/clean/cdom_ultrapath.csv") %>%
-  mutate(transect = station_cast %/% 100 * 100) %>%
-  filter(transect %in% c(300, 600)) %>%
-  mutate(transect = factor(transect, levels = c("600", "300")))
-
-# There are mostly surface CDOM
-df %>%
-  filter(wav == 200) %>%
-  count(depth)
-
-df <- df %>%
-  filter(depth == 0)
-
-# Type:
-# n = niskin
-# z = zodiacc
-# g = barge
-df %>%
-  filter(wav <= 500) %>%
-  ggplot(aes(x = wav, y = absorption, group = filename)) +
-  geom_line(size = 0.25) +
-  facet_wrap(~type)
-
-# Looks like are some spectra were duplicated, i.e. measured at the same
-# location but form the zodiac and the "barge".
-dup <- df %>%
-  filter(wav == 200) %>%
-  count(station_cast, depth, sort = TRUE) %>%
-  filter(n > 1) %>%
-  pull(station_cast)
-
-dup
-
-df %>%
-  filter(station_cast %in% dup) %>%
-  ggplot(aes(x = wav, y = absorption, group = filename)) +
-  geom_line() +
-  facet_wrap(~station_cast, scales = "free")
-
-# Average CDOM absorption spectra
-
-cdom <- df %>%
-  group_by(wav, station_cast, depth, transect) %>%
-  summarise(absorption = mean(absorption, na.rm = TRUE), n = n()) %>%
-  rename(station = station_cast) %>%
-  ungroup()
-
-cdom %>%
-  ggplot(aes(x = wav, y = absorption, group = station)) +
-  geom_line() +
-  facet_wrap(~transect)
-
-# Get station information
-
-stations <- read_csv("data/clean/stations.csv") %>%
-  distinct(station, .keep_all = TRUE) %>%
-  select(station, longitude, latitude)
-
-cdom %>%
-  anti_join(stations, by = "station") %>%
-  filter(wav == 200)
-
-cdom <- cdom %>%
-  inner_join(stations, by = "station")
-
-lab <- c(
-  "600" = "Transect 600",
-  "300" = "Transect 300"
+files <- fs::dir_ls(
+  "data/raw/ctd_jens/AC9_barge/AC9_barge/",
+  glob = "*.txt"
 )
 
-# Plot aCDOM --------------------------------------------------------------
+# a and bb have been measured by two AC9, here I compare how similar/different
+# are a440 measured by these two device.
 
-df_viz <- cdom %>%
-  filter(between(wav, 254, 600)) %>%
-  filter(station %in% c(697, 620, 398, 320)) %>%
-  group_by(transect) %>%
-  mutate(position = ifelse(
-    station == max(station),
-    "Estuary stations (south)",
-    "Open water stations (north)"
-  )) %>%
-  ungroup() %>%
-  mutate(position = factor(
-    position,
-    levels = c("Estuary stations (south)", "Open water stations (north)")
-  ))
+# df <- vroom::vroom(files, id =
+# "filename") %>% janitor::clean_names() %>% select(filename, pres_dbar,
+# starts_with("a_440"))
+#
+# df %>% pivot_longer(starts_with("a_440")) %>% ggplot(aes(x = value, y =
+# pres_dbar, color = name)) + geom_path() + scale_y_reverse() +
+# facet_wrap(~basename(filename), scales = "free")
 
-df_station <- df_viz %>%
-  group_by(station) %>%
-  filter(wav == min(wav)) %>%
-  ungroup()
-
-p1 <- df_viz %>%
-  ggplot(aes(x = wav, y = absorption, group = station)) +
-  geom_line() +
-  facet_wrap(~position, ncol = 1, scales = "free_y") +
-  geom_text(
-    data = df_station,
-    aes(label = station),
-    size = 2.5,
-    hjust = 1.25,
-    color =
-      "gray50"
-  ) +
-  scale_x_continuous(
-    expand = expansion(mult = c(0.12, 0.05)),
-    breaks = seq(250, 600, by = 50)
-  ) +
-  # coord_cartesian(xlim = c(250, 600), expand = TRUE) +
-  scale_y_continuous(
-    expand = expansion(mult = c(0.01, 0.12)),
-    breaks = scales::breaks_pretty(n = 5)
-  ) +
-  labs(
-    x = "Wavelength (nm)",
-    y = bquote(italic(a)["CDOM"]~(m^{-1}))
-  ) +
-  theme(
-    strip.background = element_blank(),
-    strip.text = element_text(hjust = 0, size = 10, face = "bold"),
-    panel.border = element_blank(),
-    axis.ticks = element_blank()
-  )
-
-# How many times higher the absorption is higher between north and south
-# stations? Approximately 15 times higher.
-df_viz %>%
-  filter(wav == 254) %>%
-  group_by(transect) %>%
-  summarise(difference = max(absorption) / min(absorption))
-
-# Plot SUVA ---------------------------------------------------------------
-
-set.seed(1234)
-
-# SUVA254
-
-doc <- read_csv("data/raw/csv/doc.csv") %>%
-  select(station, depth, doc_u_mc) %>%
-  group_by(station, depth) %>%
-  summarise(across(everything(), mean)) %>%
-  ungroup() %>%
-  mutate(doc_mc = doc_u_mc / 1e6) %>%
-  mutate(doc_g = doc_mc * 12) %>%
-  mutate(doc_mg = doc_g * 1000)
-
-doc
-
-p2 <- cdom %>%
-  filter(wav == 254) %>%
-  inner_join(doc) %>%
-  mutate(suva254 = absorption / doc_mg) %>%
-  ggplot(aes(x = latitude, y = suva254)) +
-  geom_line() +
-  geom_point() +
-  facet_wrap(~transect, scales = "free_x", ncol = 2, labeller = labeller(transect = lab)) +
-  ggrepel::geom_text_repel(aes(label = station),
-  size = 2.5,
-  color = "gray50",
-  box.padding = unit(0.25, "lines")
-) +
-  scale_x_continuous(breaks = scales::breaks_pretty(n = 6)) +
-  scale_y_continuous(breaks = scales::breaks_pretty(n = 5)) +
-  labs(
-    x = "Latitude",
-    y = bquote(SUVA[254]~(L~m^{-1}~mgC^{-1}))
-  ) +
-  theme(
-    strip.background = element_blank(),
-    strip.text = element_text(hjust = 0, size = 10, face = "bold"),
-    panel.border = element_blank(),
-    axis.ticks = element_blank()
-  )
-
-# Particulate absorption --------------------------------------------------
-
-ap <- read_csv("data/raw/csv/aptot.csv") %>%
+df <- vroom::vroom(files,
+  id = "filename",
+  .name_repair = "minimal"
+) %>%
   janitor::clean_names() %>%
-  filter(pressure == 0) %>%
-  filter(method == "BRG") %>%
-  select(-ap443_1)
+  drop_na(pres_dbar) %>%
+  select(
+    filename,
+    pres_dbar,
+    starts_with("a_"),
+    starts_with("b_"),
+    starts_with("c_"),
+    starts_with("bbp_")
+  )
 
-ap
+df
 
-df <- ap %>%
-  pivot_longer(starts_with("ap"), names_to = "wavelength", values_to = "ap") %>%
-  mutate(wavelength = parse_number(wavelength)) %>%
-  filter(between(wavelength, 254, 600)) %>%
-  filter(station %in% c(697, 620, 398, 320)) %>%
+# Tidy the data -----------------------------------------------------------
+
+df <- df %>%
+  pivot_longer(matches("^a_|^b_|^c_|^bbp_")) %>%
+  separate(
+    name,
+    into = c("variable", "wavelength", "device"),
+    fill = "right",
+    convert = TRUE
+  ) %>%
+  mutate(device = replace_na(device, "1")) %>%
+  # filter(device == "1") %>%
+  pivot_wider(names_from = variable)
+
+df
+
+# Extract the cast from the filename --------------------------------------
+
+df <- df %>%
+  mutate(cast = str_match(filename, "archive_(\\d+)_")[, 2]) %>%
+  mutate(cast = parse_number(cast))
+
+# Get station numbers -----------------------------------------------------
+
+cast <- c(136L, 137L, 138L, 139L, 140L, 141L, 155L, 158L, 159L, 160L, 161L, 162L, 163L, 164L, 166L, 168L, 169L, 171L, 172L, 174L, 175L, 176L, 177L, 178L, 179L, 180L, 181L, 182L, 183L, 185L, 186L, 187L, 188L, 189L, 190L, 191L, 192L, 193L, 194L, 195L, 196L, 197L, 198L, 199L, 200L, 201L, 202L, 203L, 204L, 205L, 206L, 207L, 208L, 209L, 210L, 211L, 212L, 213L, 214L)
+
+station <- c("691", "691", "692", "680", "394", "394", "280", "280", "260", "260", "220", "220", "240", "240", "240", "170", "170", "150", "150", "380", "380", "360", "360", "320", "320", "340", "340", "670", "670", "660", "660", "620", "620", "760", "760", "780", "695", "694", "697", "696", "691", "345_1", "345_1", "345_2", "398", "397", "396", "395", "540", "540", "430", "430", "460", "135_1", "135_2", "135_2", "235", "235_2", "235_2")
+
+cast_station <- tibble(cast, station)
+
+df %>%
+  anti_join(cast_station, by = "cast")
+
+df <- df %>%
+  left_join(cast_station, by = "cast") %>%
+  filter(str_detect(station, "^\\d{3}$")) %>%
   mutate(station = parse_number(station)) %>%
   mutate(transect = station %/% 100 * 100)
 
 df
 
+# Get geographical coordinates
+coordinates <- read_csv("data/clean/stations.csv") %>%
+  select(-transect, -cast) %>%
+  distinct(station, .keep_all = TRUE)
+
+# One station not matching...
+df %>%
+  anti_join(coordinates) %>%
+  distinct(station)
+
 df <- df %>%
-  group_by(station, wavelength, method, transect) %>%
-  summarise(ap = mean(ap, na.rm = TRUE), n = n()) %>%
-  group_by(transect) %>%
-  mutate(position = ifelse(
-    station == max(station),
-    "Estuary stations (south)",
-    "Open water stations (north)"
-  )) %>%
-  ungroup() %>%
-  mutate(position = factor(
-    position,
-    levels = c("Estuary stations (south)", "Open water stations (north)")
-  ))
+  inner_join(coordinates, )
 
-# Compare ap(443) for estuary and open water stations
-df %>%
-  filter(wavelength == 443) %>%
-  ggplot(aes(x = factor(station), y = ap, fill = position)) +
-  geom_col() +
-  geom_text(aes(label = round(ap, digits = 2)), vjust = -1)
+# Calculate bb ------------------------------------------------------------
 
-df %>%
-  ggplot(aes(x = wavelength, y = ap, color = factor(station))) +
-  geom_line() +
-  facet_wrap(~transect, scales = "free")
+# Use pure water bbw to compute bb (reminder: bb = bbp + bbw)
 
-df_station <- df %>%
-  group_by(station) %>%
-  filter(wavelength == min(wavelength)) %>%
-  ungroup()
-
-p3 <- df %>%
-  ggplot(aes(x = wavelength, y = ap, group = station)) +
-  geom_line() +
-  facet_wrap(~position, scales = "free", ncol = 1) +
-  geom_text(
-    data = df_station,
-    aes(label = station),
-    size = 2.5,
-    hjust = 1.25,
-    color =
-      "gray50"
-  ) +
-  scale_x_continuous(
-    expand = expansion(mult = c(0.12, 0.05)),
-    breaks = seq(250, 800, by = 50)
-  ) +
-  scale_y_continuous(
-    expand = expansion(mult = c(0.01, 0.12)),
-    breaks = scales::breaks_pretty(n = 5)
-  ) +
-  labs(
-    x = "Wavelength (nm)",
-    y = bquote(italic(a)[p]~(m^{-1}))
-  ) +
-  theme(
-    strip.background = element_blank(),
-    strip.text = element_text(hjust = 0, size = 10, face = "bold"),
-    panel.border = element_blank(),
-    axis.ticks = element_blank()
+bbw_hydrolight <- readxl::read_excel("data/raw/HydroLight_PureWater_IOPs.xls") %>%
+  janitor::clean_names() %>%
+  select(
+    wavelength = iop_number,
+    bbw_hydrolight = b_bw
   )
 
-# Combine plots -----------------------------------------------------------
+bbw_equation <- tibble(
+  wavelength = seq(350, 800, by = 1),
+  bbw_morel = 0.0023 * (450 / wavelength) ^ 4.32,
+  bbw_zhang = 0.0020 * (450 / wavelength) ^ 4.3
+)
 
-p <- {p1 + p3} / p2 +
-  plot_layout(heights = c(0.5, 0.25)) +
+bbw_equation %>%
+  left_join(bbw_hydrolight) %>%
+  pivot_longer(starts_with("bbw")) %>%
+  drop_na() %>%
+  ggplot(aes(x = wavelength, y = value, color = name)) +
+  geom_line()
+
+df <- df %>%
+  mutate(bbw_morel = 0.0023 * (450 / wavelength) ^ 4.32) %>%
+  mutate(bb = bbp + bbw_morel)
+
+
+# Average replicates ------------------------------------------------------
+
+# I will round the depth to the closest meter
+
+# df <- df %>%
+#   mutate(depth = round(pres_dbar, digits = 1), .after = pres_dbar) %>%
+#   group_by(depth, wavelength, device, station, transect) %>%
+#   summarise(across(a:bbp, ~ mean(., na.rm = TRUE)), n = n())
+
+# Explore -----------------------------------------------------------------
+
+df %>%
+  filter(transect %in% c(300, 600)) %>%
+  filter(wavelength == 440) %>%
+  drop_na(a) %>%
+  ggplot(aes(
+    x = a,
+    y = pres_dbar,
+    color = device,
+    group = interaction(filename, device)
+  )) +
+  geom_path() +
+  scale_y_reverse() +
+  facet_wrap(~ glue::glue("{station}\n{basename(filename)}"), scales = "free")
+
+# Some stations have many vertical profiles. I will just choose the first one as
+# it does not make sens to average replicates because they do not share the same
+# depths.
+
+df_viz <- df %>%
+  filter(transect %in% c(300, 600)) %>%
+  filter(wavelength == 440) %>%
+  group_nest(station, filename) %>%
+  distinct(station, .keep_all = TRUE) %>%
+  unnest(data) %>%
+  mutate(transect = factor(transect, levels = c(600, 300)))
+
+# Keep vertical profiles with at least 5 measurements
+df_viz_a <- df_viz %>%
+  drop_na(a) %>%
+  add_count(station) %>%
+  filter(n >= 5)
+
+df_viz_a %>%
+  ggplot(aes(
+    x = a,
+    y = pres_dbar,
+    color = device,
+    group = interaction(filename, device)
+  )) +
+  geom_path() +
+  scale_y_reverse() +
+  facet_wrap(~ glue::glue("{station}\n{basename(filename)}"), scales = "free")
+
+
+# Interpolation for a -----------------------------------------------------
+
+df_viz_a <- df_viz %>%
+  drop_na(a) %>%
+  add_count(station) %>%
+  filter(n >= 5)
+
+res <- df_viz_a %>%
+  group_nest(transect) %>%
+  mutate(interpolated_a = map(
+    data,
+    interpolate_2d,
+    x = latitude,
+    y = pres_dbar,
+    z = a,
+    n = 1,
+    m = 1,
+    h = 4
+  ))
+
+station_labels <- res %>%
+  unnest(data) %>%
+  group_by(transect) %>%
+  ungroup() %>%
+  distinct(station, .keep_all = TRUE) %>%
+  select(station, transect, latitude)
+
+facet_lab <- c(
+  "600" = "Transect 600",
+  "300" = "Transect 300"
+)
+
+p1 <- res %>%
+  select(-data) %>%
+  unnest(interpolated_a) %>%
+  drop_na(z) %>%
+  mutate(z = ifelse(z < 0, 0, z)) %>%
+  ggplot(aes(x = x, y = y, z = z, fill = z)) +
+  geom_raster() +
+  geom_isobands(color = NA, breaks = seq(0, 5, by = 0.1)) +
+  geom_text(
+    data = station_labels,
+    aes(x = latitude, y = 0, label = station),
+    inherit.aes = FALSE,
+    size = 1.5,
+    angle = 45,
+    hjust = -0.1,
+    color = "gray50"
+  ) +
+  geom_point(
+    data = unnest(res, data),
+    aes(x = latitude, y = pres_dbar),
+    size = 0.05,
+    color = "gray50",
+    inherit.aes = FALSE
+  ) +
+  facet_wrap(~transect, scales = "free_x", labeller = labeller(transect = facet_lab)) +
+  scale_y_reverse(expand = expansion(mult = c(0.01, 0.15))) +
+  scale_x_continuous(
+    expand = expansion(mult = c(0.01, 0.05)),
+    breaks = scales::breaks_pretty(n = 4)
+  ) +
+  paletteer::scale_fill_paletteer_c("oompaBase::jetColors",
+    trans = "sqrt",
+    breaks = scales::pretty_breaks(n = 6),
+    # breaks = seq(0, 120, by = 20),
+    # limits = c(0, 1.6),
+    guide =
+      guide_colorbar(
+        barwidth = unit(8, "cm"),
+        barheight = unit(0.2, "cm"),
+        direction = "horizontal",
+        title.position = "top",
+        title.hjust = 0.5
+      )
+  ) +
+  labs(
+    x = "Latitude",
+    y = "Depth (m)",
+    fill = bquote(italic(a)(440) ~ "["*m^{-1}*"]")
+  ) +
+  theme(
+    panel.grid = element_blank(),
+    strip.background = element_blank(),
+    strip.text.x = element_text(hjust = 0, size = 10, face = "bold"),
+    strip.text.y = element_text(hjust = 0.5, size = 6),
+    panel.border = element_blank(),
+    axis.ticks = element_blank(),
+    legend.position = "bottom",
+    legend.text = element_text(size = 6),
+    legend.title = element_text(size = 8)
+  )
+
+
+# Interpolation fore bb ---------------------------------------------------
+
+df_viz_bb <- df_viz %>%
+  drop_na(bb) %>%
+  add_count(station) %>%
+  filter(n >= 5)
+
+res <- df_viz_bb %>%
+  group_nest(transect) %>%
+  mutate(interpolated_bb = map(
+    data,
+    interpolate_2d,
+    x = latitude,
+    y = pres_dbar,
+    z = bb,
+    n = 1,
+    m = 1,
+    h = 4
+  ))
+
+station_labels <- res %>%
+  unnest(data) %>%
+  group_by(transect) %>%
+  ungroup() %>%
+  distinct(station, .keep_all = TRUE) %>%
+  select(station, transect, latitude)
+
+facet_lab <- c(
+  "600" = "Transect 600",
+  "300" = "Transect 300"
+)
+
+p2 <- res %>%
+  select(-data) %>%
+  unnest(interpolated_bb) %>%
+  drop_na(z) %>%
+  mutate(z = ifelse(z < 0, 0, z)) %>%
+  ggplot(aes(x = x, y = y, z = z, fill = z)) +
+  geom_raster() +
+  geom_isobands(color = NA, breaks = seq(0, 5, by = 0.005)) +
+  geom_text(
+    data = station_labels,
+    aes(x = latitude, y = 0, label = station),
+    inherit.aes = FALSE,
+    size = 1.5,
+    angle = 45,
+    hjust = -0.1,
+    color = "gray50"
+  ) +
+  geom_point(
+    data = unnest(res, data),
+    aes(x = latitude, y = pres_dbar),
+    size = 0.05,
+    color = "gray50",
+    inherit.aes = FALSE
+  ) +
+  facet_wrap(~transect, scales = "free_x", labeller = labeller(transect = facet_lab)) +
+  scale_y_reverse(expand = expansion(mult = c(0.01, 0.15))) +
+  scale_x_continuous(
+    expand = expansion(mult = c(0.01, 0.05)),
+    breaks = scales::breaks_pretty(n = 4)
+  ) +
+  paletteer::scale_fill_paletteer_c("oompaBase::jetColors",
+    trans = "sqrt",
+    breaks = scales::pretty_breaks(n = 8),
+    # limits = c(0, 0.5),
+    oob = scales::squish,
+    guide =
+      guide_colorbar(
+        barwidth = unit(8, "cm"),
+        barheight = unit(0.2, "cm"),
+        direction = "horizontal",
+        title.position = "top",
+        title.hjust = 0.5
+      )
+  ) +
+  labs(
+    x = "Latitude",
+    y = "Depth (m)",
+    fill = bquote(italic(b[b])(440) ~ "["*m^{-1}*"]")
+  ) +
+  theme(
+    panel.grid = element_blank(),
+    strip.background = element_blank(),
+    strip.text.x = element_text(hjust = 0, size = 10, face = "bold"),
+    strip.text.y = element_text(hjust = 0.5, size = 6),
+    panel.border = element_blank(),
+    axis.ticks = element_blank(),
+    legend.position = "bottom",
+    legend.text = element_text(size = 6),
+    legend.title = element_text(size = 8)
+  )
+
+# Save plot ---------------------------------------------------------------
+
+p <- p1 + p2 +
+  plot_layout(ncol = 1) +
   plot_annotation(tag_levels = "A") &
   theme(plot.tag = element_text(face = "bold"))
 
-ggsave(
-  "graphs/fig06.pdf",
+ggsave("graphs/fig06.pdf",
   device = cairo_pdf,
   width = 17.5,
-  height = 15,
+  height = 14,
   units = "cm"
 )

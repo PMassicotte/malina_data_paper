@@ -28,6 +28,7 @@ library(googlesheets4)
 library(data.table)
 library(knitr) # For creating the LaTeX tables
 library(kableExtra)
+library(stars)
 
 ## Set default ggplot2 font size and font family
 # devtools::install_github("PMassicotte/ggpmthemes")
@@ -60,6 +61,7 @@ source("R/fig11.R")
 source("R/fig12.R")
 source("R/fig13.R")
 source("R/fig14.R")
+source("R/fig15.R")
 
 # Tables ------------------------------------------------------------------
 
