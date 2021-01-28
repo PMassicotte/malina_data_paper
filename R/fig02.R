@@ -128,7 +128,7 @@ p2 <- sic %>%
       title.theme = element_text(hjust = 0.5),
       keywidth = unit(1, "cm"),
       keyheight = unit(0.25, "cm"),
-      override.aes = list(color = "#3c3c3c", size = 0.1)
+      override.aes = list(color = "#3c3c3c", size = 0.25)
     )
   ) +
   coord_sf(xlim = c(-141, -125), ylim = c(68.5, 72.5)) +
@@ -143,8 +143,6 @@ p2 <- sic %>%
     axis.ticks = element_blank(),
     axis.title = element_blank()
   )
-
-p2
 
 # Combine plots -----------------------------------------------------------
 
