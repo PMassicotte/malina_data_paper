@@ -232,7 +232,7 @@ df_station <- df %>%
 p3 <- df %>%
   ggplot(aes(x = wavelength, y = ap, group = station)) +
   geom_line() +
-  facet_wrap(~position, scales = "free", ncol = 1) +
+  facet_wrap(~position, scales = "free_y", ncol = 1) +
   geom_text(
     data = df_station,
     aes(label = station),
