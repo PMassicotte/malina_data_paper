@@ -101,11 +101,25 @@ sic
 sic %>%
   count(tc_mid)
 
+
+# River network -----------------------------------------------------------
+
+# https://open.canada.ca/data/en/dataset/448ec403-6635-456b-8ced-d3ac24143add
+river_network <-
+  st_read("data/raw/lakes_rivers_shapefiles/ghy_000c11a_e/ghy_000c11a_e.shp") %>%
+  st_crop(c(
+    xmin = -141,
+    xmax = -125,
+    ymin = 68,
+    ymax = 72.5
+  ))
+
 # Plot --------------------------------------------------------------------
 
 p2 <- sic %>%
   ggplot() +
-  geom_sf(data = ne_land, size = 0.15, fill = "gray75") +
+  geom_sf(data = ne_land, size = 0.01) +
+  geom_sf(data = river_network, size = 0.01, color = "gray75") +
   geom_sf(aes(fill = tc_mid / 100), color = NA) +
   geom_sf(data = isobath_200m, fill = NA, color = "red") +
   geom_point(data = station, aes(
