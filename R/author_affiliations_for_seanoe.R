@@ -74,7 +74,12 @@ authors_v1_others <- authors_v1 %>%
   filter(!str_detect(Nom, "Massicotte|Babin"))
 
 bind_rows(authors_v1_pm, authors_v1_others, authors_v1_mb) %>%
-  write_csv("data/clean/affiliations_seanoe_v1.csv", na = "")
+  rename_with(
+    ~ str_replace(., "Institution", "Affiliation"),
+    starts_with("Institution")
+  ) %>%
+  mutate(Contributeurs = "false", .after = Orcid) %>%
+  data.table::fwrite("data/clean/affiliations_seanoe_v1.csv", na = "")
 
 # Second format -----------------------------------------------------------
 
