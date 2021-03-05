@@ -73,7 +73,7 @@ references <- table1 %>%
     }
   )) %>%
   unnest(citation_text) %>%
-  select(-contains("bibtex"))
+  select(-c(bibtex_df))
 
 references
 
@@ -108,7 +108,14 @@ table1 <- table1 %>%
   )
 
 table1 <- table1 %>%
-  group_nest(Parameters, Method, Sampling, `Principal investigators`, `Included in the data repository`) %>%
+  group_nest(
+    Parameters,
+    Method,
+    Sampling,
+    `Principal investigators`,
+    `Included in the data repository`,
+    bibtex_citation_key
+  ) %>%
   mutate(Reference = map_chr(data, ~ paste(.$Reference, collapse = ", "))) %>%
   select(-data)
 
@@ -151,12 +158,20 @@ table1_formatted <- table1 %>%
   mutate(across(where(is.character), ~ str_replace_all(., "P waves", "P-waves"))) %>%
   mutate(across(where(is.character), ~ str_replace_all(., "Particle Size Ditribution", "Particle Size Distribution")))
 
-
 # Prepare the footnote ----------------------------------------------------
 
+# I changed the footnote as required by the ESSD type writer. The footnote now
+# includes the bibtex citation keys.
+
+# fn <- references %>%
+#   distinct(Reference, citation_text, bibtex_citation_key) %>%
+#   summarise(fn = glue("({Reference}) {citation_text}")) %>%
+#   pull(fn) %>%
+#   paste0(collapse = "; ")
+
 fn <- references %>%
-  distinct(Reference, citation_text) %>%
-  summarise(fn = glue("({Reference}) {citation_text}")) %>%
+  distinct(Reference, citation_text, bibtex_citation_key) %>%
+  summarise(fn = glue("\\citet{{{bibtex_citation_key}}}")) %>%
   pull(fn) %>%
   paste0(collapse = "; ")
 
@@ -181,11 +196,11 @@ table1_formatted %>%
     general = fn,
     threeparttable = TRUE,
     fixed_small_size = FALSE,
-    escape = FALSE,
+    escape = TRUE,
     general_title = ""
   ) %>%
   # row_spec(c(0), bold = TRUE) %>%
   # landscape() %>%
-  write_lines(here::here("tables/table1.tex"))
+  write_lines(here::here("tables/table1_with_citet_commands.tex"))
 
 
